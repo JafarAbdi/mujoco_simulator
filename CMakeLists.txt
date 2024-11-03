@@ -48,7 +48,7 @@ include(SimulateDependencies)
 # Build libsimulate/lodepng
 add_subdirectory(src/simulate)
 
-add_executable(simulate ${mujoco_SOURCE_DIR}/simulate/main.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h)
+add_executable(simulate src/main.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h)
 target_compile_options(simulate PUBLIC ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_link_libraries(
   simulate
@@ -58,8 +58,8 @@ target_link_libraries(
   Threads::Threads
   lodepng
 )
-
 target_link_options(simulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
+target_include_directories(simulate PRIVATE ${mujoco_SOURCE_DIR}/simulate)
 
 add_executable(pub src/example.cpp)
 target_link_libraries(

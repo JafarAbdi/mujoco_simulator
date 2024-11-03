@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <mujoco/mujoco.h>
+
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -25,22 +27,21 @@
 #include <string>
 #include <thread>
 
-#include <mujoco/mujoco.h>
+#include "array_safety.h"
 #include "glfw_adapter.h"
 #include "simulate.h"
-#include "array_safety.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 
 extern "C" {
 #if defined(_WIN32) || defined(__CYGWIN__)
-  #include <windows.h>
+#include <windows.h>
 #else
-  #if defined(__APPLE__)
-    #include <mach-o/dyld.h>
-  #endif
-  #include <sys/errno.h>
-  #include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+#include <sys/errno.h>
+#include <unistd.h>
 #endif
 }
 
@@ -59,8 +60,9 @@ mjData* d = nullptr;
 
 using Seconds = std::chrono::duration<double>;
 
-
+// clang-format off
 //---------------------------------------- plugin handling -----------------------------------------
+// clang-format on
 
 // return the path to the directory containing the current executable
 // used to determine the location of auto-loaded plugin libraries
@@ -72,7 +74,7 @@ std::string getExecutableDir() {
     DWORD buf_size = 128;
     bool success = false;
     while (!success) {
-      realpath.reset(new(std::nothrow) char[buf_size]);
+      realpath.reset(new (std::nothrow) char[buf_size]);
       if (!realpath) {
         std::cerr << "cannot allocate memory to store executable path\n";
         return "";
@@ -83,7 +85,7 @@ std::string getExecutableDir() {
         success = true;
       } else if (written == buf_size) {
         // realpath is too small, grow and retry
-        buf_size *=2;
+        buf_size *= 2;
       } else {
         std::cerr << "failed to retrieve executable path: " << GetLastError() << "\n";
         return "";
@@ -116,7 +118,7 @@ std::string getExecutableDir() {
     std::uint32_t buf_size = 128;
     bool success = false;
     while (!success) {
-      realpath.reset(new(std::nothrow) char[buf_size]);
+      realpath.reset(new (std::nothrow) char[buf_size]);
       if (!realpath) {
         std::cerr << "cannot allocate memory to store executable path\n";
         return "";
@@ -157,8 +159,6 @@ std::string getExecutableDir() {
   return "";
 }
 
-
-
 // scan for libraries in the plugin directory to load additional plugins
 void scanPluginLibraries() {
   // check and print plugins that are linked directly into the executable
@@ -176,7 +176,6 @@ void scanPluginLibraries() {
 #else
   const std::string sep = "/";
 #endif
-
 
   // try to open the ${EXECDIR}/MUJOCO_PLUGIN_DIR directory
   // ${EXECDIR} is the directory containing the simulate binary itself
@@ -196,8 +195,9 @@ void scanPluginLibraries() {
       });
 }
 
-
+// clang-format off
 //------------------------------------------- simulation -------------------------------------------
+// clang-format on
 
 const char* Diverged(int disableflags, const mjData* d) {
   if (disableflags & mjDSBL_AUTORESET) {
@@ -224,9 +224,9 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
   char loadError[kErrorLength] = "";
   mjModel* mnew = 0;
   auto load_start = mj::Simulate::Clock::now();
-  if (mju::strlen_arr(filename)>4 &&
-      !std::strncmp(filename + mju::strlen_arr(filename) - 4, ".mjb",
-                    mju::sizeof_arr(filename) - mju::strlen_arr(filename)+4)) {
+  if (mju::strlen_arr(filename) > 4 && !std::strncmp(filename + mju::strlen_arr(filename) - 4,
+                                                     ".mjb",
+                                                     mju::sizeof_arr(filename) - mju::strlen_arr(filename) + 4)) {
     mnew = mj_loadModel(filename, nullptr);
     if (!mnew) {
       mju::strcpy_arr(loadError, "could not load binary model");
@@ -237,8 +237,8 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
     // remove trailing newline character from loadError
     if (loadError[0]) {
       int error_length = mju::strlen_arr(loadError);
-      if (loadError[error_length-1] == '\n') {
-        loadError[error_length-1] = '\0';
+      if (loadError[error_length - 1] == '\n') {
+        loadError[error_length - 1] = '\0';
       }
     }
   }
@@ -326,7 +326,8 @@ void PhysicsLoop(mj::Simulate& sim) {
     }
 
     // sleep for 1 ms or yield, to let main thread run
-    //  yield results in busy wait - which has better timing but kills battery life
+    //  yield results in busy wait - which has better timing but kills battery
+    //  life
     if (sim.run && sim.busywait) {
       std::this_thread::yield();
     } else {
@@ -353,13 +354,13 @@ void PhysicsLoop(mj::Simulate& sim) {
           // requested slow-down factor
           double slowdown = 100 / sim.percentRealTime[sim.real_time_index];
 
-          // misalignment condition: distance from target sim time is bigger than syncmisalign
-          bool misaligned =
-              std::abs(Seconds(elapsedCPU).count()/slowdown - elapsedSim) > syncMisalign;
+          // misalignment condition: distance from target sim time is bigger
+          // than syncmisalign
+          bool misaligned = std::abs(Seconds(elapsedCPU).count() / slowdown - elapsedSim) > syncMisalign;
 
           // out-of-sync (for any reason): reset sync times, step
-          if (elapsedSim < 0 || elapsedCPU.count() < 0 || syncCPU.time_since_epoch().count() == 0 ||
-              misaligned || sim.speed_changed) {
+          if (elapsedSim < 0 || elapsedCPU.count() < 0 || syncCPU.time_since_epoch().count() == 0 || misaligned ||
+              sim.speed_changed) {
             // re-sync
             syncCPU = startCPU;
             syncSim = d->time;
@@ -381,15 +382,14 @@ void PhysicsLoop(mj::Simulate& sim) {
             bool measured = false;
             mjtNum prevSim = d->time;
 
-            double refreshTime = simRefreshFraction/sim.refresh_rate;
+            double refreshTime = simRefreshFraction / sim.refresh_rate;
 
             // step while sim lags behind cpu and within refreshTime
-            while (Seconds((d->time - syncSim)*slowdown) < mj::Simulate::Clock::now() - syncCPU &&
+            while (Seconds((d->time - syncSim) * slowdown) < mj::Simulate::Clock::now() - syncCPU &&
                    mj::Simulate::Clock::now() - startCPU < Seconds(refreshTime)) {
               // measure slowdown before first step
               if (!measured && elapsedSim) {
-                sim.measured_slowdown =
-                    std::chrono::duration<double>(elapsedCPU).count() / elapsedSim;
+                sim.measured_slowdown = std::chrono::duration<double>(elapsedCPU).count() / elapsedSim;
                 measured = true;
               }
 
@@ -431,7 +431,9 @@ void PhysicsLoop(mj::Simulate& sim) {
 }
 }  // namespace
 
+// clang-format off
 //-------------------------------------- physics_thread --------------------------------------------
+// clang-format on
 
 void PhysicsThread(mj::Simulate* sim, const char* filename) {
   // request loadmodel if file given (otherwise drag-and-drop)
@@ -464,9 +466,12 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
   mj_deleteModel(m);
 }
 
+// clang-format off
 //------------------------------------------ main --------------------------------------------------
+// clang-format on
 
-// machinery for replacing command line error by a macOS dialog box when running under Rosetta
+// machinery for replacing command line error by a macOS dialog box when running
+// under Rosetta
 #if defined(__APPLE__) && defined(__AVX__)
 extern void DisplayErrorDialogBox(const char* title, const char* msg);
 static const char* rosetta_error_msg = nullptr;
@@ -477,7 +482,6 @@ __attribute__((used, visibility("default"))) extern "C" void _mj_rosettaError(co
 
 // run event loop
 int main(int argc, char** argv) {
-
   // display an error if running on macOS under Rosetta 2
 #if defined(__APPLE__) && defined(__AVX__)
   if (rosetta_error_msg) {
@@ -488,7 +492,7 @@ int main(int argc, char** argv) {
 
   // print version, check compatibility
   std::printf("MuJoCo version %s\n", mj_versionString());
-  if (mjVERSION_HEADER!=mj_version()) {
+  if (mjVERSION_HEADER != mj_version()) {
     mju_error("Headers and library have different versions");
   }
 
@@ -505,13 +509,11 @@ int main(int argc, char** argv) {
   mjv_defaultPerturb(&pert);
 
   // simulate object encapsulates the UI
-  auto sim = std::make_unique<mj::Simulate>(
-      std::make_unique<mj::GlfwAdapter>(),
-      &cam, &opt, &pert, /* is_passive = */ false
-  );
+  auto sim =
+      std::make_unique<mj::Simulate>(std::make_unique<mj::GlfwAdapter>(), &cam, &opt, &pert, /* is_passive = */ false);
 
   const char* filename = nullptr;
-  if (argc >  1) {
+  if (argc > 1) {
     filename = argv[1];
   }
 

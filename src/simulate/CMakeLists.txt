@@ -41,7 +41,7 @@ if(APPLE)
   enable_language(OBJCXX)
 endif()
 
-option(SIMULATE_BUILD_EXECUTABLE "Build the simulate executable binary." ON)
+option(SIMULATE_BUILD_EXECUTABLE "Build the simulate executable binary." OFF)
 option(SIMULATE_GLFW_DYNAMIC_SYMBOLS "Whether to resolve GLFW symbols dynamically." OFF)
 
 # Check if we are building as standalone project.
@@ -59,6 +59,7 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../cmake")
 if(SIMULATE_STANDALONE)
   include(SimulateOptions)
 else()
+  include(MujocoMacOS)
   enforce_mujoco_macosx_min_version()
 endif()
 include(SimulateDependencies)
@@ -104,8 +105,8 @@ endif()
 add_library(platform_ui_adapter OBJECT)
 target_sources(
   platform_ui_adapter
-  PUBLIC glfw_adapter.h glfw_dispatch.h platform_ui_adapter.h
-  PRIVATE glfw_adapter.cc glfw_dispatch.cc platform_ui_adapter.cc
+  PUBLIC ${mujoco_SOURCE_DIR}/simulate/glfw_adapter.h ${mujoco_SOURCE_DIR}/simulate/glfw_dispatch.h ${mujoco_SOURCE_DIR}/simulate/platform_ui_adapter.h
+  PRIVATE ${mujoco_SOURCE_DIR}/simulate/glfw_adapter.cc ${mujoco_SOURCE_DIR}/simulate/glfw_dispatch.cc ${mujoco_SOURCE_DIR}/simulate/platform_ui_adapter.cc
 )
 target_compile_options(platform_ui_adapter PRIVATE ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 if(APPLE)
@@ -128,8 +129,8 @@ add_library(mujoco::libsimulate ALIAS libsimulate)
 
 target_sources(
   libsimulate
-  PUBLIC simulate.h
-  PRIVATE simulate.cc array_safety.h
+  PUBLIC ${mujoco_SOURCE_DIR}/simulate/simulate.h
+  PRIVATE ${mujoco_SOURCE_DIR}/simulate/simulate.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h
 )
 target_include_directories(libsimulate PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(libsimulate PRIVATE ${MUJOCO_SIMULATE_COMPILE_OPTIONS})

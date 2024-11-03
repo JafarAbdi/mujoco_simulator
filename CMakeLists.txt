@@ -40,19 +40,26 @@ set_target_properties(mujoco::mujoco PROPERTIES
 
 list(APPEND CMAKE_MODULE_PATH "${mujoco_SOURCE_DIR}/simulate/cmake")
 
+# Used for simulate to find the dependencies
 set(MUJOCO_SIMULATE_USE_SYSTEM_GLFW ON)
-include(SimulateDependencies)
 include(SimulateOptions)
+include(SimulateDependencies)
 
-add_executable(basic ${mujoco_SOURCE_DIR}/sample/basic.cc)
-target_compile_options(basic PUBLIC ${MUJOCO_SAMPLE_COMPILE_OPTIONS})
+# Build libsimulate/lodepng
+add_subdirectory(src/simulate)
+
+add_executable(simulate ${mujoco_SOURCE_DIR}/simulate/main.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h)
+target_compile_options(simulate PUBLIC ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_link_libraries(
-  basic
+  simulate
+  libsimulate
   mujoco::mujoco
   glfw
   Threads::Threads
+  lodepng
 )
-target_link_options(basic PRIVATE ${MUJOCO_SAMPLE_LINK_OPTIONS})
+
+target_link_options(simulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 
 add_executable(pub src/example.cpp)
 target_link_libraries(
@@ -66,12 +73,8 @@ target_link_libraries(
   spdlog::spdlog
 )
 
-install(TARGETS pub sub basic
+install(TARGETS simulate
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
-
-# enable_testing()
-# add_test(NAME ${PROJECT_NAME}_test 
-#          COMMAND ${PROJECT_NAME} --version)

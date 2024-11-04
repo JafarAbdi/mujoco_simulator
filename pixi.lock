@@ -46,6 +46,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/ninja-1.12.1-h297d8ca_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/openssl-3.3.2-hb9d3cd8_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pthread-stubs-0.4-hb9d3cd8_1002.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/range-v3-0.12.0-h59595ed_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/rhash-1.4.5-hb9d3cd8_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/rust-1.81.0-h1a8d7c4_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/rust-std-x86_64-unknown-linux-gnu-1.81.0-h2c6d0dc_0.conda
@@ -1043,6 +1044,20 @@ packages:
   license_family: MIT
   size: 205855
   timestamp: 1725456273924
+- kind: conda
+  name: range-v3
+  version: 0.12.0
+  build: h59595ed_0
+  subdir: linux-64
+  url: https://conda.anaconda.org/conda-forge/linux-64/range-v3-0.12.0-h59595ed_0.conda
+  sha256: 0aa8ef4b2c2722198e3cb279791bbac40ce43ea93bd5d154f675accc38c05ebe
+  md5: 8ace58ece3b22b7811f6e03be54b1318
+  depends:
+  - libgcc-ng >=12
+  - libstdcxx-ng >=12
+  license: BSL-1.0
+  size: 232021
+  timestamp: 1681982853303
 - kind: conda
   name: readline
   version: '8.2'

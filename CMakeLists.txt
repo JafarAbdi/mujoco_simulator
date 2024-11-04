@@ -6,9 +6,6 @@ project(mujoco_zenoh
     LANGUAGES CXX C
 )
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
@@ -25,6 +22,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(mujoco)
 
+find_package(range-v3 REQUIRED)
 find_package(zenohc REQUIRED)
 find_package(zenohcxx REQUIRED)
 find_package(spdlog REQUIRED)
@@ -48,32 +46,31 @@ include(SimulateDependencies)
 # Build libsimulate/lodepng
 add_subdirectory(src/simulate)
 
-add_executable(simulate src/main.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h)
-target_compile_options(simulate PUBLIC ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
+add_executable(mujoco_simulator src/main.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h)
+target_compile_features(mujoco_simulator PRIVATE cxx_std_20)
+target_compile_options(mujoco_simulator PUBLIC ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_link_libraries(
-  simulate
+  mujoco_simulator
   libsimulate
   mujoco::mujoco
   glfw
   Threads::Threads
   lodepng
-)
-target_link_options(simulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
-target_include_directories(simulate PRIVATE ${mujoco_SOURCE_DIR}/simulate)
-
-add_executable(pub src/example.cpp)
-target_link_libraries(
-  pub
+  spdlog::spdlog
   zenohcxx::zenohc
 )
+target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
+target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate)
+
 add_executable(sub src/sub.cpp)
 target_link_libraries(
   sub
   zenohcxx::zenohc
   spdlog::spdlog
 )
+target_compile_features(sub PRIVATE cxx_std_20)
 
-install(TARGETS simulate
+install(TARGETS mujoco_simulator
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

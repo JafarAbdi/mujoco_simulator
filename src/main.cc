@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <fmt/ranges.h>
 #include <mujoco/mujoco.h>
+#include <spdlog/spdlog.h>
 
 #include <cerrno>
 #include <chrono>
@@ -24,8 +26,14 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <range/v3/to_container.hpp>
+#include <range/v3/view/iota.hpp>
+#include <range/v3/view/transform.hpp>
+#include <ranges>
+#include <span>
 #include <string>
 #include <thread>
+#include <zenoh.hxx>
 
 #include "array_safety.h"
 #include "glfw_adapter.h"
@@ -270,6 +278,38 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
 
 // simulate in background thread (while rendering in main thread)
 void PhysicsLoop(mj::Simulate& sim) {
+  zenoh::Config config = zenoh::Config::create_default();
+  auto session = zenoh::Session::open(std::move(config));
+
+  const auto joint_names =
+      std::views::iota(0, m->njnt) |
+      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_jntadr[i]); }) |
+      std::views::filter(
+          [](const auto joint_name) { return mj_name2id(m, mjtObj::mjOBJ_JOINT, joint_name.data()) != -1; }) |
+      ranges::to_vector;
+
+  const auto body_names =
+      std::views::iota(0, m->nbody) |
+      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_bodyadr[i]); }) |
+      ranges::to_vector;
+
+  const auto geom_names =
+      std::views::iota(0, m->ngeom) |
+      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_geomadr[i]); }) |
+      std::views::filter(
+          [](const auto geom_name) { return mj_name2id(m, mjtObj::mjOBJ_GEOM, geom_name.data()) != -1; }) |
+      ranges::to_vector;
+
+  const auto actuator_names =
+      std::views::iota(0, m->nu) |
+      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_actuatoradr[i]); }) |
+      ranges::to_vector;
+
+  spdlog::info("joint_names: {}", joint_names);
+  spdlog::info("body_names: {}", body_names);
+  spdlog::info("geom_names: {}", geom_names);
+  spdlog::info("actuator_names: {}", actuator_names);
+
   // cpu-sim syncronization point
   std::chrono::time_point<mj::Simulate::Clock> syncCPU;
   mjtNum syncSim = 0;
@@ -398,6 +438,9 @@ void PhysicsLoop(mj::Simulate& sim) {
 
               // call mj_step
               mj_step(m, d);
+              session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
+              session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
+              session.put("robot/qacc", zenoh::ext::serialize(std::span(d->qacc, m->nv)));
               const char* message = Diverged(m->opt.disableflags, d);
               if (message) {
                 sim.run = 0;
@@ -516,6 +559,8 @@ int main(int argc, char** argv) {
   if (argc > 1) {
     filename = argv[1];
   }
+
+  zenoh::init_log_from_env_or("error");
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), filename);

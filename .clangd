@@ -1,0 +1,11 @@
+CompileFlags:
+  CompilationDatabase: .build/mujoco
+If:
+  PathMatch:
+  - src/.*
+---
+CompileFlags:
+  CompilationDatabase: .build/zenoh-cpp/
+If:
+  PathMatch:
+  - external/zenoh-cpp/.*

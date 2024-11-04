@@ -62,14 +62,6 @@ target_link_libraries(
 target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate)
 
-add_executable(sub src/sub.cpp)
-target_link_libraries(
-  sub
-  zenohcxx::zenohc
-  spdlog::spdlog
-)
-target_compile_features(sub PRIVATE cxx_std_20)
-
 install(TARGETS mujoco_simulator
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

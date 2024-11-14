@@ -539,6 +539,9 @@ int main(int argc, char** argv) {
     mju_error("Headers and library have different versions");
   }
 
+  mju_user_error = +[](const char* msg) { spdlog::error("{}", msg); };
+  mju_user_warning = +[](const char* msg) { spdlog::warn("{}", msg); };
+
   // scan for libraries in the plugin directory to load additional plugins
   scanPluginLibraries();
 

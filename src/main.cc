@@ -16,12 +16,15 @@
 #include <mujoco/mujoco.h>
 #include <spdlog/spdlog.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <future>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -276,39 +279,97 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
   return mnew;
 }
 
+void load_model(mujoco::Simulate& sim) {
+  sim.LoadMessage(sim.filename);
+  mjModel* mnew = LoadModel(sim.filename, sim);
+  mjData* dnew = nullptr;
+  if (mnew) dnew = mj_makeData(mnew);
+  if (dnew) {
+    sim.Load(mnew, dnew, sim.filename);
+
+    // lock the sim mutex
+    const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
+
+    mj_deleteData(d);
+    mj_deleteModel(m);
+
+    m = mnew;
+    d = dnew;
+    mj_forward(m, d);
+
+  } else {
+    sim.LoadMessageClear();
+  }
+}
+
 // simulate in background thread (while rendering in main thread)
 void PhysicsLoop(mj::Simulate& sim) {
   zenoh::Config config = zenoh::Config::create_default();
   auto session = zenoh::Session::open(std::move(config));
 
-  const auto joint_names =
-      std::views::iota(0, m->njnt) |
-      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_jntadr[i]); }) |
-      std::views::filter(
-          [](const auto joint_name) { return mj_name2id(m, mjtObj::mjOBJ_JOINT, joint_name.data()) != -1; }) |
-      ranges::to_vector;
+  auto control_subscriber = session.declare_subscriber(zenoh::KeyExpr("robot/ctrl"), zenoh::channels::RingChannel(1));
+  auto reset_queryable = session.declare_queryable(
+      zenoh::KeyExpr("reset"),
+      [&](const zenoh::Query& query) {
+        bool reset = false;
+        std::optional<std::string> keyframe = std::nullopt;
+        std::optional<std::string> model_filename = std::nullopt;
+        if (const auto& payload = query.get_payload(); payload.has_value()) {
+          reset = zenoh::ext::deserialize<bool>(payload.value());
+        }
+        if (const auto& attachment = query.get_attachment(); attachment.has_value()) {
+          const auto& attachments =
+              zenoh::ext::deserialize<std::unordered_map<std::string, std::string>>(attachment->get());
+          if (attachments.contains("keyframe")) {
+            keyframe = attachments.at("keyframe");
+          }
+          if (attachments.contains("model_filename")) {
+            model_filename = attachments.at("model_filename");
+          }
+        }
+        if (model_filename.has_value()) {
+          mju::strcpy_arr(sim.filename, model_filename.value().c_str());
+          load_model(sim);
+          spdlog::info("Model loaded: {}", model_filename.value());
+        }
+        if (reset) {
+          std::unique_lock lock(sim.mtx);
+          if (keyframe.has_value()) {
+            const auto keyframe_names =
+                std::views::iota(0, m->nkey) |
+                std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_keyadr[i]); }) |
+                ranges::to_vector;
+            const auto keyframe_it = std::ranges::find(keyframe_names, keyframe.value());
+            if (keyframe_it == keyframe_names.end()) {
+              spdlog::error("Keyframe '{}' not found.", keyframe.value());
+              return;
+            }
+            spdlog::info("Loading keyframe '{}'.", keyframe.value());
+            const auto keyframe_index = std::distance(keyframe_names.begin(), keyframe_it);
+            mj_resetDataKeyframe(m, d, keyframe_index);
+          } else {
+            mj_resetData(m, d);
+          }
+          mj_forward(m, d);
+          sim.load_error[0] = '\0';
+          sim.scrub_index = 0;
+          sim.pending_.ui_update_simulation = true;
+          query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(true));
+        }
+        spdlog::info("Simulation reset");
+        session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
+        session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
+      },
+      zenoh::closures::none);
 
-  const auto body_names =
-      std::views::iota(0, m->nbody) |
-      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_bodyadr[i]); }) |
-      ranges::to_vector;
-
-  const auto geom_names =
-      std::views::iota(0, m->ngeom) |
-      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_geomadr[i]); }) |
-      std::views::filter(
-          [](const auto geom_name) { return mj_name2id(m, mjtObj::mjOBJ_GEOM, geom_name.data()) != -1; }) |
-      ranges::to_vector;
-
-  const auto actuator_names =
-      std::views::iota(0, m->nu) |
-      std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_actuatoradr[i]); }) |
-      ranges::to_vector;
-
-  spdlog::info("joint_names: {}", joint_names);
-  spdlog::info("body_names: {}", body_names);
-  spdlog::info("geom_names: {}", geom_names);
-  spdlog::info("actuator_names: {}", actuator_names);
+  auto model_queryable = session.declare_queryable(
+      zenoh::KeyExpr("model"),
+      [&](const zenoh::Query& query) {
+        query.reply(zenoh::KeyExpr("model"),
+                    (std::filesystem::current_path() / sim.filename).string(),
+                    {.encoding = zenoh::Encoding::Predefined::text_plain()});
+      },
+      zenoh::closures::none);
 
   // cpu-sim syncronization point
   std::chrono::time_point<mj::Simulate::Clock> syncCPU;
@@ -343,26 +404,7 @@ void PhysicsLoop(mj::Simulate& sim) {
 
     if (sim.uiloadrequest.load()) {
       sim.uiloadrequest.fetch_sub(1);
-      sim.LoadMessage(sim.filename);
-      mjModel* mnew = LoadModel(sim.filename, sim);
-      mjData* dnew = nullptr;
-      if (mnew) dnew = mj_makeData(mnew);
-      if (dnew) {
-        sim.Load(mnew, dnew, sim.filename);
-
-        // lock the sim mutex
-        const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
-
-        mj_deleteData(d);
-        mj_deleteModel(m);
-
-        m = mnew;
-        d = dnew;
-        mj_forward(m, d);
-
-      } else {
-        sim.LoadMessageClear();
-      }
+      load_model(sim);
     }
 
     // sleep for 1 ms or yield, to let main thread run
@@ -408,6 +450,8 @@ void PhysicsLoop(mj::Simulate& sim) {
 
             // run single step, let next iteration deal with timing
             mj_step(m, d);
+            session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
+            session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
             const char* message = Diverged(m->opt.disableflags, d);
             if (message) {
               sim.run = 0;
@@ -436,11 +480,20 @@ void PhysicsLoop(mj::Simulate& sim) {
               // inject noise
               sim.InjectNoise();
 
+              auto result = control_subscriber.handler().try_recv();
+              if (std::holds_alternative<zenoh::Sample>(result)) {
+                const auto& sample = std::get<zenoh::Sample>(result);
+                const auto control = zenoh::ext::deserialize<std::vector<double>>(sample.get_payload());
+                if (control.size() != m->nu) {
+                  spdlog::error("Control size mismatch: expected {}, got {}", m->nu, control.size());
+                } else {
+                  std::ranges::copy(control, d->ctrl);
+                }
+              }
               // call mj_step
               mj_step(m, d);
               session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
               session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
-              session.put("robot/qacc", zenoh::ext::serialize(std::span(d->qacc, m->nv)));
               const char* message = Diverged(m->opt.disableflags, d);
               if (message) {
                 sim.run = 0;
@@ -567,6 +620,10 @@ int main(int argc, char** argv) {
 
   // start physics thread
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), filename);
+
+  // Hide left/right UI by default (TODO: Should we make this a command line option?)
+  sim->ui0_enable = 0;
+  sim->ui1_enable = 0;
 
   // start simulation UI loop (blocking call)
   sim->RenderLoop();

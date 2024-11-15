@@ -23,6 +23,7 @@ jobs:
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           frozen: true
           manifest-path: mujoco_simulator_cpp/pixi.toml
+          environments: lint
       - run: pixi run lint --color=always --show-diff-on-failure
   build-simulator:
     timeout-minutes: 30

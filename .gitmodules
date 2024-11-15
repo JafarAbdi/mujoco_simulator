@@ -1,3 +1,3 @@
 [submodule "external/zenoh-cpp"]
-	path = external/zenoh-cpp
+	path = mujoco_simulator_cpp/external/zenoh-cpp
 	url = https://github.com/eclipse-zenoh/zenoh-cpp.git

@@ -27,6 +27,7 @@
 #include <future>
 #include <iostream>
 #include <memory>
+#include <mujoco_simulator/mujoco_model_view.hpp>
 #include <mutex>
 #include <new>
 #include <range/v3/to_container.hpp>
@@ -335,14 +336,13 @@ void PhysicsLoop(mj::Simulate& sim) {
         if (reset) {
           std::unique_lock lock(sim.mtx);
           if (keyframe.has_value()) {
-            const auto keyframe_names =
-                std::views::iota(0, m->nkey) |
-                std::views::transform([&](const auto i) { return std::string_view(m->names + m->name_keyadr[i]); }) |
-                ranges::to_vector;
+            const auto keyframe_names = ModelView(m).keyframe_names();
             const auto keyframe_it = std::ranges::find(keyframe_names, keyframe.value());
             if (keyframe_it == keyframe_names.end()) {
-              spdlog::error("Keyframe '{}' not found.", keyframe.value());
-              return;
+              auto error =
+                  fmt::format("Keyframe '{}' not found. Available keyframes: {}", keyframe.value(), keyframe_names);
+              spdlog::error(error);
+              query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(std::make_tuple(false, std::move(error))));
             }
             spdlog::info("Loading keyframe '{}'.", keyframe.value());
             const auto keyframe_index = std::distance(keyframe_names.begin(), keyframe_it);
@@ -354,7 +354,7 @@ void PhysicsLoop(mj::Simulate& sim) {
           sim.load_error[0] = '\0';
           sim.scrub_index = 0;
           sim.pending_.ui_update_simulation = true;
-          query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(true));
+          query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(std::make_tuple(true, std::string())));
         }
         spdlog::info("Simulation reset");
         session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));

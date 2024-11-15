@@ -60,7 +60,16 @@ target_link_libraries(
   zenohcxx::zenohc
 )
 target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
-target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate)
+target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate include)
+
+add_executable(mujoco_model_view src/mujoco_model_view.cpp)
+target_compile_features(mujoco_model_view PRIVATE cxx_std_20)
+target_include_directories(mujoco_model_view PRIVATE include)
+target_link_libraries(
+  mujoco_model_view
+  mujoco::mujoco
+  spdlog::spdlog
+)
 
 install(TARGETS mujoco_simulator
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

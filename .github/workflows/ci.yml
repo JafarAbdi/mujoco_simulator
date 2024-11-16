@@ -60,7 +60,7 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           frozen: true
-          manifest-path: mujoco_simulator_py/pixi.toml
+          manifest-path: mujoco_simulator_py/pyproject.toml
       - working-directory: mujoco_simulator_py
         run: pixi run --environment test install-mujoco
       - working-directory: mujoco_simulator_py

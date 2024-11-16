@@ -7,26 +7,75 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
-configure-zenoh-c = "cmake -GNinja -DCMAKE_BUILD_TYPE=Release -S external/zenoh-cpp/zenoh-c .build/zenoh-c"
-build-zenoh-c = { cmd = "cmake --build .build/zenoh-c", depends_on = [
-  "configure-zenoh-c",
-] }
-install-zenoh-c = { cmd = "cmake --install .build/zenoh-c --prefix .pixi/envs/default", depends_on = [
-  "build-zenoh-c",
-] }
-configure-zenoh-cpp = { cmd = "cmake -GNinja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Release -S external/zenoh-cpp .build/zenoh-cpp", depends_on = [
+
+configure-zenoh-cpp = { cmd = [
+  "cmake",
+  "-GNinja",
+  "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+  "-DCMAKE_BUILD_TYPE=Release",
+  "-S",
+  "../external/zenoh-cpp",
+  ".build/zenoh-cpp",
+], depends_on = [
   "install-zenoh-c",
 ] }
-build-zenoh-cpp = { cmd = "cmake --build .build/zenoh-cpp", depends_on = [
+
+configure-zenoh-c = { cmd = [
+  "cmake",
+  "-GNinja",
+  "-DCMAKE_BUILD_TYPE=Release",
+  "-S",
+  "../external/zenoh-cpp/zenoh-c",
+  ".build/zenoh-c",
+] }
+build-zenoh-c = { cmd = [
+  "cmake",
+  "--build",
+  ".build/zenoh-c",
+], depends_on = [
+  "configure-zenoh-c",
+] }
+install-zenoh-c = { cmd = [
+  "cmake",
+  "--install",
+  ".build/zenoh-c",
+  "--prefix",
+  ".pixi/envs/default",
+], depends_on = [
+  "build-zenoh-c",
+] }
+build-zenoh-cpp = { cmd = [
+  "cmake",
+  "--build",
+  ".build/zenoh-cpp",
+], depends_on = [
   "configure-zenoh-cpp",
 ] }
-build-zenoh-cpp-examples = { cmd = "cmake --build .build/zenoh-cpp --target examples", depends_on = [
+build-zenoh-cpp-examples = { cmd = [
+  "cmake",
+  "--build",
+  ".build/zenoh-cpp",
+  "--target examples",
+], depends_on = [
   "build-zenoh-cpp",
 ] }
-install-zenoh-cpp = { cmd = "cmake --install .build/zenoh-cpp --prefix .pixi/envs/default", depends_on = [
+install-zenoh-cpp = { cmd = [
+  "cmake",
+  "--install",
+  ".build/zenoh-cpp",
+  "--prefix",
+  "$CONDA_PREFIX",
+], depends_on = [
   "build-zenoh-cpp",
 ] }
-configure = "cmake -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -S . .build/mujoco"
+configure = { cmd = [
+  "cmake",
+  "-GNinja",
+  "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+  "-S",
+  ".",
+  ".build/mujoco",
+] }
 build = { cmd = "cmake --build .build/mujoco", depends_on = ["configure"] }
 # install = { cmd = "cmake --install .build/mujoco --prefix .pixi/envs/default", depends_on = ["build"] }
 

@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<mujoco model="rrr_robot">
+  <compiler angle="radian" inertiafromgeom="true" />
+  <default>
+    <default class="joint">
+      <joint armature="0.1" damping="1" range="-3.14 3.14" />
+      <general
+        biastype="affine"
+        ctrlrange="-6.28 6.28"
+        dyntype="none"
+        forcerange="-87 87"
+      />
+    </default>
+  </default>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="120" elevation="-20" />
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+      height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+      rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"
+      reflectance="0.2" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+  </worldbody>
+
+
+  <worldbody>
+
+    <!-- Base -->
+    <body gravcomp="1" name="base_link" pos="0 0 0">
+      <geom type="cylinder" size="0.1 0.025" rgba="0 0 0.8 1" />
+
+      <!-- Link 1 -->
+      <body gravcomp="1" name="link1" pos="0 0 0.025">
+        <joint name="joint1" class="joint" axis="0 0 1" />
+        <geom type="box" size="0.05 0.05 0.25" pos="0 0 0.25" rgba="0.8 0 0 1" />
+
+        <!-- Link 2 -->
+        <body gravcomp="1" name="link2" pos="0 0 0.5">
+          <joint name="joint2" class="joint" axis="0 1 0" />
+          <geom type="box" size="0.05 0.05 0.2" pos="0 0 0.2" rgba="0 0.8 0 1" />
+
+          <!-- Link 3 -->
+          <body gravcomp="1" name="link3" pos="0 0 0.4">
+            <joint name="joint3" class="joint" axis="0 1 0" />
+            <geom type="box" size="0.05 0.05 0.15" pos="0 0 0.15" rgba="0.8 0.8 0 1" />
+
+            <!-- End Effector -->
+            <body gravcomp="1" name="end_effector" pos="0 0 0.3">
+              <geom type="sphere" size="0.05" rgba="1 1 1 1" />
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position class="joint" kp="260" kv="86" joint="joint1" />
+    <position class="joint" kp="260" kv="86" joint="joint2" />
+    <position class="joint" kp="260" kv="86" joint="joint3" />
+  </actuator>
+</mujoco>

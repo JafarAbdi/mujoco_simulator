@@ -38,6 +38,12 @@ To change the logging verbosity
 LOG_LEVEL=Debug pixi run python examples/...
 ```
 
+To change the logging verbosity for trac-ik solver
+
+```
+SPDLOG_LEVEL=debug pixi run python XXX
+```
+
 ## Acknowledgements
 
 TODO

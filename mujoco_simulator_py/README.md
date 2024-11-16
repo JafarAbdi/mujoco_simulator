@@ -13,6 +13,7 @@ You can install the package in development mode using:
 git clone https://github.com/JafarAbdi/mujoco_simulator_py
 cd mujoco_simulator_py
 
+pixi run install-mujoco
 pixi install -a
 ```
 

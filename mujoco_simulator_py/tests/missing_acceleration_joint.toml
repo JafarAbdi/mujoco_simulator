@@ -1,6 +1,6 @@
 [robot]
-base_link = "world"
-description = "../robots/rrr/rrr.urdf.xacro"
+base_link = "base_link"
+description = "../robots/rrr/scene.xml"
 mappings = {}
 
 [group.arm]

@@ -1,0 +1,16 @@
+[robot]
+base_link = "world"
+description = "acrobot.xml"
+mappings = {}
+
+[group.arm]
+joints = ["elbow"]
+
+[named_states]
+home = [0.0]
+
+[velocity_limits]
+elbow = 1.0
+
+[acceleration_limits]
+elbow = 1.0

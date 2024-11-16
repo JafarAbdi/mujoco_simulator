@@ -1,3 +1,6 @@
 [submodule "external/zenoh-cpp"]
 	path = mujoco_simulator_cpp/external/zenoh-cpp
 	url = https://github.com/eclipse-zenoh/zenoh-cpp.git
+[submodule "mujoco_simulator_py/external/mujoco_menagerie"]
+	path = mujoco_simulator_py/external/mujoco_menagerie
+	url = git@github.com:google-deepmind/mujoco_menagerie.git

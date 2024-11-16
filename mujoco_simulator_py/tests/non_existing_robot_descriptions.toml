@@ -1,0 +1,4 @@
+[robot]
+base_link = "non_existing_robot_base_link"
+description = "non_existing_robot"
+mappings = {}

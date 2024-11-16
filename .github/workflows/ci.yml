@@ -55,6 +55,8 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           cache: true

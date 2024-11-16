@@ -14,6 +14,7 @@ git clone https://github.com/JafarAbdi/mujoco_simulator_py
 cd mujoco_simulator_py
 
 pixi run install-mujoco
+pixi run trac-ik-install
 pixi install -a
 ```
 

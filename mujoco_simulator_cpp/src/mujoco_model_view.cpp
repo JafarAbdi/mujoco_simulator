@@ -6,7 +6,11 @@
 #include <range/v3/to_container.hpp>
 
 int main(int argc, char* argv[]) {
-  auto* model = mj_loadXML("models/acrobot.xml", nullptr, nullptr, 0);
+  if (argc != 2) {
+    spdlog::error("Usage: {} <model_file>", argv[0]);
+    return 1;
+  }
+  auto* model = mj_loadXML(argv[1], nullptr, nullptr, 0);
   mjData* data = mj_makeData(model);
 
   const auto model_view = ModelView{model};
@@ -22,10 +26,19 @@ int main(int argc, char* argv[]) {
   spdlog::info("actuator_names: {}", model_view.actuator_names());
   spdlog::info("keyframe_names: {}", model_view.keyframe_names());
 
+  // Bodies
+  spdlog::info("body_parent_ids: {}", model_view.body_parent_ids());
+  spdlog::info("body_root_ids: {}", model_view.body_root_ids());
+  spdlog::info("body_tree_ids: {}", model_view.body_tree_ids());
+  spdlog::info("body_joint_axes: {}", model_view.body_joint_axes());
+  spdlog::info("body_joint_types: {}", model_view.body_joint_types());
+
   // Joints
-  spdlog::info("joint_limited: {}", model_view.joint_limited());
   spdlog::info("joint_types: {}", model_view.joint_types());
-  spdlog::info("joint_range: {}", model_view.joint_range());
+  spdlog::info("joint_body_ids: {}", model_view.joint_body_ids());
+  spdlog::info("joint_limited: {}", model_view.joint_limited());
+  spdlog::info("joint_axes: {}", model_view.joint_axes());
+  spdlog::info("joint_range: {}", model_view.joint_ranges());
 
   // Keyframes
   spdlog::info("keyframes qpos: {}", model_view.keyframe_qpos());

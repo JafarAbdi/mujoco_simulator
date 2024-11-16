@@ -7,7 +7,7 @@
 #include <ranges>
 
 template <typename T>
-auto make_names_view(const mjModel* model, int mjModel::* count, T* mjModel::* name_address) {
+auto make_names_view(const mjModel* model, int mjModel::*count, T* mjModel::*name_address) {
   // Need to capture by value to avoid dangling references since views are lazy evaluated
   return std::views::iota(0, std::invoke(count, model)) | std::views::transform([=](const auto i) {
            return std::string_view(model->names + std::invoke(name_address, model)[i]);
@@ -15,7 +15,7 @@ auto make_names_view(const mjModel* model, int mjModel::* count, T* mjModel::* n
 }
 
 template <typename T>
-auto make_body_joints_view(const mjModel* model, T* mjModel::* value_address) {
+auto make_body_joints_view(const mjModel* model, T* mjModel::*value_address) {
   return std::views::iota(0, model->nbody) |
          std::views::filter([=](const auto body_index) { return model->body_jntadr[body_index] != -1; }) |
          std::views::transform([=](const auto body_index) {
@@ -27,7 +27,7 @@ auto make_body_joints_view(const mjModel* model, T* mjModel::* value_address) {
 }
 
 template <typename T>
-auto make_body_joints_view(const mjModel* model, T* mjModel::* value_address, int size) {
+auto make_body_joints_view(const mjModel* model, T* mjModel::*value_address, int size) {
   return std::views::iota(0, model->nbody) |
          std::views::filter([=](const auto body_index) { return model->body_jntadr[body_index] != -1; }) |
          std::views::transform([=](const auto body_index) {

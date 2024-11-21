@@ -291,6 +291,15 @@ class Robot:
             configs["acceleration_limits"],
         )
 
+        assert self.groups[
+            GROUP_NAME
+        ].tcp_link_name, f"tcp_link_name is not defined for group '{GROUP_NAME}'"
+        self._ik_solver = IKSolver(
+            self.model_filename,
+            self.base_link,
+            self.groups[GROUP_NAME].tcp_link_name,
+        )
+
     @staticmethod
     def _make_velocity_limits(joint_names: list[str], velocity_limits_configs: dict):
         velocity_limits = []
@@ -360,11 +369,8 @@ class Robot:
     def _make_named_states(self, configs):
         named_states = {}
         for state_name, state_config in configs["named_states"].items():
-            assert (
-                len(state_config)
-                == len(
-                    self.joint_names,
-                )
+            assert len(state_config) == len(
+                self.joint_names,
             ), f"Named state '{state_name}' has {len(state_config)} joint positions, expected {len(self.joint_names)} for {self.joint_names}"
             named_states[state_name] = state_config
 
@@ -445,15 +451,7 @@ class Robot:
         Returns:
             The joint positions for the target pose or None if no solution was found
         """
-        assert self.groups[
-            GROUP_NAME
-        ].tcp_link_name, f"tcp_link_name is not defined for group '{GROUP_NAME}'"
-        solver = IKSolver(
-            self.model_filename,
-            self.base_link,
-            self.groups[GROUP_NAME].tcp_link_name,
-        )
-        return solver.ik(
+        return self._ik_solver.ik(
             target_pose,
             initial_configuration,
         )
@@ -542,7 +540,9 @@ class IKSolver:
         Returns:
             The joint positions for the target pose or None if no solution was found
         """
-        assert len(seed) == self._ik_solver.getNrOfJointsInChain()
+        assert (
+            len(seed) == self._ik_solver.getNrOfJointsInChain()
+        ), f"Seed has {len(seed)} joints, expected {self._ik_solver.getNrOfJointsInChain()}"
         joint_positions = self._ik_solver.CartToJnt(
             seed,
             target_pose,

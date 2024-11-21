@@ -11,12 +11,12 @@ joints = [
   "joint_4",
   "joint_5",
   "joint_6",
-  "joint_7",
+  # "joint_7",
 ]
 tcp_link_name = "bracelet_link" # "kinova_hand_tcp"
 
 [named_states]
-home = [0.0, 0.0, -3.14, -2.51, 0.0, 0.96, 1.57]
+home = [0.0, 0.0, -3.14, -2.51, 0.0, 0.96] #, 1.57]
 
 [velocity_limits]
 joint_1 = 1.0
@@ -25,7 +25,7 @@ joint_3 = 1.0
 joint_4 = 1.0
 joint_5 = 1.0
 joint_6 = 1.0
-joint_7 = 1.0
+# joint_7 = 1.0
 
 [acceleration_limits]
 joint_1 = 1.0
@@ -34,4 +34,4 @@ joint_3 = 1.0
 joint_4 = 1.0
 joint_5 = 1.0
 joint_6 = 1.0
-joint_7 = 1.0
+# joint_7 = 1.0

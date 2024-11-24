@@ -35,7 +35,7 @@ check_untyped_defs = true
 testpaths = ["tests"]
 
 [tool.ruff.lint]
-exclude = ["mujoco_simulator_py/examples/*"]
+exclude = ["mujoco_simulator_py/examples/*", "mujoco_simulator_py/tests/*"]
 # Never enforce `E501`.
 extend-select = [
   # Enabled by default

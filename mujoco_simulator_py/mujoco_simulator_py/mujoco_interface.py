@@ -4,7 +4,6 @@ import logging
 import os
 from pathlib import Path
 
-import numpy as np
 import zenoh
 from rich.logging import RichHandler
 
@@ -99,10 +98,10 @@ class MuJoCoInterface:
             pass
         return zenoh.ext.z_deserialize(list[float], qvel.payload)
 
-    def ctrl(self, ctrl: np.ndarray):
+    def ctrl(self, ctrl: dict[int, float]):
         """Send ctrl to the simulator.
 
         Args:
             ctrl: The control signal to send to the simulator.
         """
-        self._ctrl_publisher.put(zenoh.ext.z_serialize(np.asarray(ctrl).tolist()))
+        self._ctrl_publisher.put(zenoh.ext.z_serialize(ctrl))

@@ -28,7 +28,7 @@
     </body>
   </worldbody>
   <actuator>
-    <motor joint="elbow"/>
+    <motor name="elbow" joint="elbow"/>
   </actuator>
   <keyframe>
     <key name="upright" qpos="3.14 0" qvel="0 0"/>

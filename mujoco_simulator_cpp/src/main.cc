@@ -30,13 +30,13 @@
 #include <mujoco_simulator/mujoco_model_view.hpp>
 #include <mutex>
 #include <new>
+#include <range/v3/algorithm/for_each.hpp>
 #include <range/v3/to_container.hpp>
-#include <range/v3/view/iota.hpp>
-#include <range/v3/view/transform.hpp>
 #include <ranges>
 #include <span>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <zenoh.hxx>
 
 #include "array_safety.h"
@@ -483,12 +483,9 @@ void PhysicsLoop(mj::Simulate& sim) {
               auto result = control_subscriber.handler().try_recv();
               if (std::holds_alternative<zenoh::Sample>(result)) {
                 const auto& sample = std::get<zenoh::Sample>(result);
-                const auto control = zenoh::ext::deserialize<std::vector<double>>(sample.get_payload());
-                if (control.size() != m->nu) {
-                  spdlog::error("Control size mismatch: expected {}, got {}", m->nu, control.size());
-                } else {
-                  std::ranges::copy(control, d->ctrl);
-                }
+
+                const auto control = zenoh::ext::deserialize<std::unordered_map<int, double>>(sample.get_payload());
+                ranges::for_each(control, [&](const auto& actuator) { d->ctrl[actuator.first] = actuator.second; });
               }
               // call mj_step
               mj_step(m, d);

@@ -49,7 +49,7 @@ def main():
         dx = np.hstack(
             (qpos - lqr.qpos_0, qvel),
         ).T
-        mujoco_interface.ctrl(lqr.control(dx))
+        mujoco_interface.ctrl({0: lqr.control(dx).item()})
         rate.sleep()
 
 

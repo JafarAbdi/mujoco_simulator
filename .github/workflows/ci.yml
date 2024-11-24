@@ -64,10 +64,6 @@ jobs:
           frozen: true
           manifest-path: mujoco_simulator_py/pyproject.toml
       - working-directory: mujoco_simulator_py
-        run: pixi run --environment test install-mujoco
-      - working-directory: mujoco_simulator_py
-        run: pixi run --environment test trac-ik-install
-      - working-directory: mujoco_simulator_py
         run: pixi run test
       - working-directory: mujoco_simulator_py
         run: pixi run -e test test-coverage --color=yes

@@ -34,7 +34,7 @@ def main():
     zenoh.init_log_from_env_or("error")
     mujoco_interface = MuJoCoInterface()
     mujoco_interface.reset(
-        model_filename="robots/acrobot/acrobot.xml",
+        model_filename="examples/acrobot.xml",
         keyframe="upright",
     )
 

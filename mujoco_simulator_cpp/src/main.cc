@@ -43,6 +43,15 @@
 #include "glfw_adapter.h"
 #include "simulate.h"
 
+static constexpr char kXml[] = R"(
+<mujoco>
+  <worldbody>
+    <body name="target" pos="0.5 0 .5" quat="0 1 0 0" mocap="true">
+      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba=".6 .3 .3 .2"/>
+    </body>
+  </worldbody>
+</mujoco>)";
+
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 
 extern "C" {
@@ -491,6 +500,9 @@ void PhysicsLoop(mj::Simulate& sim) {
               mj_step(m, d);
               session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
               session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
+              session.put(
+                  "robot/mocap",
+                  zenoh::ext::serialize(std::make_tuple(std::span(d->mocap_pos, 3), std::span(d->mocap_quat, 4))));
               const char* message = Diverged(m->opt.disableflags, d);
               if (message) {
                 sim.run = 0;
@@ -552,9 +564,31 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
     }
   }
 
+  mjSpec* spec;
+  mjSpec* child_spec;
+  {
+    std::unique_lock lock(sim->mtx);
+    spec = mj_parseXML(filename, nullptr, nullptr, 0);
+    if (!spec) {
+      spdlog::error("Failed to parse spec");
+      exit(1);
+    }
+    child_spec = mj_parseXMLString(kXml, nullptr, nullptr, 0);
+    mjsBody* mocap_body = mjs_findBody(child_spec, "target");
+    mjsFrame* frame = mjs_addFrame(mjs_findBody(spec, "world"), nullptr);
+    mjs_attachBody(frame, mocap_body, "attached-", "-1");
+    if (mj_recompile(spec, nullptr, m, d) != 0) {
+      spdlog::error("Failed");
+      exit(1);
+    }
+  }
+  sim->Load(m, d, filename);
+
   PhysicsLoop(*sim);
 
   // delete everything we allocated
+  mj_deleteSpec(child_spec);
+  mj_deleteSpec(spec);
   mj_deleteData(d);
   mj_deleteModel(m);
 }

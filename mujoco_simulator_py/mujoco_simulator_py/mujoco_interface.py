@@ -31,6 +31,10 @@ class MuJoCoInterface:
             "robot/qvel",
             zenoh.handlers.RingChannel(1),
         )
+        self._mocap_subscriber = self._session.declare_subscriber(
+            "robot/mocap",
+            zenoh.handlers.RingChannel(1),
+        )
         self._ctrl_publisher = self._session.declare_publisher("robot/ctrl")
 
     def reset(self, *, model_filename: str | None = None, keyframe: str | None = None):
@@ -97,6 +101,16 @@ class MuJoCoInterface:
         while (qvel := self._qvel_subscriber.try_recv()) is None:
             pass
         return zenoh.ext.z_deserialize(list[float], qvel.payload)
+
+    def mocap(self):
+        """Get the current mocap.
+
+        Returns:
+            The current mocap as ([x, y, z], [qw, qx, qy, qz]).
+        """
+        while (mocap := self._mocap_subscriber.try_recv()) is None:
+            pass
+        return zenoh.ext.z_deserialize(tuple[list[float], list[float]], mocap.payload)
 
     def ctrl(self, ctrl: dict[int, float]):
         """Send ctrl to the simulator.

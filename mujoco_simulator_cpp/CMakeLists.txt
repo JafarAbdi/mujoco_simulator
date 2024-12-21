@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 include(GNUInstallDirs)
 
-set(MUJOCO_VERSION "3.2.5")
+set(MUJOCO_VERSION "3.2.6")
 
 set(FETCHCONTENT_QUIET OFF)
 # Download and extract MuJoCo
@@ -65,11 +65,11 @@ target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulat
 add_executable(mujoco_model_view src/mujoco_model_view.cpp)
 target_compile_features(mujoco_model_view PRIVATE cxx_std_20)
 target_include_directories(mujoco_model_view PRIVATE include)
-target_link_libraries(
-  mujoco_model_view
-  mujoco::mujoco
-  spdlog::spdlog
-)
+target_link_libraries(mujoco_model_view mujoco::mujoco spdlog::spdlog)
+
+add_executable(mjs_spec src/mjs_spec.cpp)
+target_compile_features(mjs_spec PRIVATE cxx_std_20)
+target_link_libraries(mjs_spec mujoco::mujoco spdlog::spdlog)
 
 install(TARGETS mujoco_simulator
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

@@ -65,6 +65,14 @@ repos:
         entry: taplo format
         language: system
         types: [toml]
+  # - repo: https://github.com/cmake-lint/cmake-lint
+  #   rev: 1.4.3
+  #   hooks:
+  #     - id: cmakelint
+  # - repo: https://github.com/cheshirekow/cmake-format-precommit
+  #   rev: v0.6.13
+  #   hooks:
+  #     - id: cmake-format
 # - repo: https://github.com/fastai/nbdev
 #   rev: 2.2.10
 #   hooks:

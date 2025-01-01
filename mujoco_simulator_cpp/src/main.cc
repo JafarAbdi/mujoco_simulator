@@ -564,30 +564,9 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
     }
   }
 
-  mjSpec* spec;
-  mjSpec* child_spec;
-  {
-    std::unique_lock lock(sim->mtx);
-    spec = mj_parseXML(filename, nullptr, nullptr, 0);
-    if (!spec) {
-      spdlog::error("Failed to parse spec");
-      exit(1);
-    }
-    child_spec = mj_parseXMLString(kXml, nullptr, nullptr, 0);
-    mjsBody* mocap_body = mjs_findBody(child_spec, "target");
-    mjsFrame* frame = mjs_addFrame(mjs_findBody(spec, "world"), nullptr);
-    mjs_attachBody(frame, mocap_body, "attached-", "-1");
-    if (mj_recompile(spec, nullptr, m, d) != 0) {
-      spdlog::error("Failed");
-      exit(1);
-    }
-  }
-  sim->Load(m, d, filename);
-
   PhysicsLoop(*sim);
 
   // delete everything we allocated
-  mj_deleteSpec(child_spec);
   mj_deleteSpec(spec);
   mj_deleteData(d);
   mj_deleteModel(m);

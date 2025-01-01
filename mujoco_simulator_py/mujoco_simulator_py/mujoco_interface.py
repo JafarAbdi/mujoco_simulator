@@ -6,6 +6,8 @@ from pathlib import Path
 
 import zenoh
 from rich.logging import RichHandler
+from dataclasses import dataclass
+import json
 
 logging.basicConfig(
     level="NOTSET",
@@ -15,6 +17,16 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(level=os.getenv("LOG_LEVEL", "INFO").upper())
+
+
+@dataclass
+class AttachModelRequest:
+    model_filename: str
+    site_name: str
+    pos: list[float]
+    quat: list[float]
+    prefix: str
+    suffix: str
 
 
 class MuJoCoInterface:
@@ -36,6 +48,37 @@ class MuJoCoInterface:
             zenoh.handlers.RingChannel(1),
         )
         self._ctrl_publisher = self._session.declare_publisher("robot/ctrl")
+
+    def attach_model(
+        self,
+        attach_model_request: AttachModelRequest,
+    ):
+        """Send a reset request to the simulator.
+
+        Args:
+            model_filename: The filename of the model to load.
+            keyframe: The name of the keyframe to use after loading/resetting the model.
+
+        Raises:
+            RuntimeError: If the reset request fails.
+        """
+
+        attach_model_request.model_filename = str(
+            Path(attach_model_request.model_filename).resolve()
+        )
+        replies = list(
+            self._session.get(
+                "attach_model",
+                payload=zenoh.ZBytes(
+                    json.dumps(attach_model_request.__dict__).encode()
+                ),
+            ),
+        )
+        assert len(replies) == 1
+        ok = zenoh.ext.z_deserialize(bool, replies[0].ok.payload)
+        if not ok:
+            msg = f"Failed to reset the simulation: {error_msg}"
+            raise RuntimeError(msg)
 
     def reset(self, *, model_filename: str | None = None, keyframe: str | None = None):
         """Send a reset request to the simulator.

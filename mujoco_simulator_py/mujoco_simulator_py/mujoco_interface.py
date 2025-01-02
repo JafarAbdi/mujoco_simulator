@@ -1,13 +1,13 @@
 """Python interface to mujoco_simulator."""
 
+import json
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import zenoh
 from rich.logging import RichHandler
-from dataclasses import dataclass
-import json
 
 logging.basicConfig(
     level="NOTSET",
@@ -62,15 +62,14 @@ class MuJoCoInterface:
         Raises:
             RuntimeError: If the reset request fails.
         """
-
         attach_model_request.model_filename = str(
-            Path(attach_model_request.model_filename).resolve()
+            Path(attach_model_request.model_filename).resolve(),
         )
         replies = list(
             self._session.get(
                 "attach_model",
                 payload=zenoh.ZBytes(
-                    json.dumps(attach_model_request.__dict__).encode()
+                    json.dumps(attach_model_request.__dict__).encode(),
                 ),
             ),
         )

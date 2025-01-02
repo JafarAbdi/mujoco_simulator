@@ -8,6 +8,8 @@ project(mujoco_zenoh
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(mujoco REQUIRED)
+
 include(FetchContent)
 include(GNUInstallDirs)
 
@@ -27,19 +29,20 @@ find_package(zenohc REQUIRED)
 find_package(zenohcxx REQUIRED)
 find_package(spdlog REQUIRED)
 
-add_library(mujoco::mujoco SHARED IMPORTED GLOBAL)
+# add_library(mujoco::mujoco SHARED IMPORTED GLOBAL)
 
 # Set the imported location and include directories
-set_target_properties(mujoco::mujoco PROPERTIES
-    IMPORTED_LOCATION "${mujoco_SOURCE_DIR}/lib/libmujoco.so.${MUJOCO_VERSION}"
-    INTERFACE_INCLUDE_DIRECTORIES "${mujoco_SOURCE_DIR}/include"
-    IMPORTED_NO_SONAME TRUE
-)
+# set_target_properties(mujoco::mujoco PROPERTIES
+#     IMPORTED_LOCATION "${mujoco_SOURCE_DIR}/lib/libmujoco.so.${MUJOCO_VERSION}"
+#     INTERFACE_INCLUDE_DIRECTORIES "${mujoco_SOURCE_DIR}/include"
+#     IMPORTED_NO_SONAME TRUE
+# )
 
 list(APPEND CMAKE_MODULE_PATH "${mujoco_SOURCE_DIR}/simulate/cmake")
 
 # Used for simulate to find the dependencies
 set(MUJOCO_SIMULATE_USE_SYSTEM_GLFW ON)
+set(MUJOCO_SIMULATE_USE_SYSTEM_MUJOCO ON)
 include(SimulateOptions)
 include(SimulateDependencies)
 
@@ -62,14 +65,14 @@ target_link_libraries(
 target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate include)
 
-add_executable(mujoco_model_view src/mujoco_model_view.cpp)
-target_compile_features(mujoco_model_view PRIVATE cxx_std_20)
-target_include_directories(mujoco_model_view PRIVATE include)
-target_link_libraries(
-  mujoco_model_view
-  mujoco::mujoco
-  spdlog::spdlog
-)
+# add_executable(mujoco_model_view src/mujoco_model_view.cpp)
+# target_compile_features(mujoco_model_view PRIVATE cxx_std_20)
+# target_include_directories(mujoco_model_view PRIVATE include)
+# target_link_libraries(
+#   mujoco_model_view
+#   mujoco::mujoco
+#   spdlog::spdlog
+# )
 
 install(TARGETS mujoco_simulator
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

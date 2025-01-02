@@ -244,12 +244,6 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
     return nullptr;
   }
 
-  spec = mj_parseXML(filename, nullptr, nullptr, 0);
-  if (!spec) {
-    spdlog::error("Failed to parse spec");
-    exit(1);
-  }
-
   // load and compile
   char loadError[kErrorLength] = "";
   mjModel* mnew = 0;
@@ -262,7 +256,14 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
       mju::strcpy_arr(loadError, "could not load binary model");
     }
   } else {
-    mnew = mj_loadXML(filename, nullptr, loadError, kErrorLength);
+    // You have to use spec, otherwise recompiling won't have the qpos from old data
+    spec = mj_parseXML(filename, nullptr, loadError, kErrorLength);
+    if (!spec) {
+      spdlog::error("Failed to parse spec: {}", std::span(loadError, kErrorLength));
+      exit(1);
+    }
+
+    mnew = mj_compile(spec, nullptr);  // mj_loadXML(filename, nullptr, loadError, kErrorLength);
 
     // remove trailing newline character from loadError
     if (loadError[0]) {
@@ -319,25 +320,10 @@ bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
 
     mnew = mj_copyModel(nullptr, m);
     dnew = mj_copyData(nullptr, m, d);
-    spdlog::info("Before - Old qpos: {}", std::span(d->qpos, m->nq));
-    spdlog::info("Before - New qpos: {}", std::span(dnew->qpos, mnew->nq));
     if (mj_recompile(spec, nullptr, mnew, dnew) != 0) {
       spdlog::error("Failed");
       return false;
     }
-    spdlog::info("After - Old qpos: {}", std::span(d->qpos, m->nq));
-    spdlog::info("After - New qpos: {}", std::span(dnew->qpos, mnew->nq));
-    // TODO: Should be able to Save/Restore data similar to mj_recompile
-    // mnew = mj_compile(spec, nullptr);
-    // if (!mnew) {
-    //   spdlog::error("Failed");
-    //   return false;
-    // }
-    // dnew = mj_makeData(mnew);
-    // if (!dnew) {
-    //   spdlog::error("Failed");
-    //   return false;
-    // }
   }
   sim.Load(mnew, dnew, sim.filename);
 
@@ -445,8 +431,8 @@ void PhysicsLoop(mj::Simulate& sim) {
             nlohmann::json::parse(query.get_payload().value().get().as_string()).get<AttachModelRequst>();
         spdlog::info("Attaching model: {}", request.model_filename);
         spdlog::info("Site name: {}", request.site_name);
-        spdlog::info("Position: [{}]", request.pos);
-        spdlog::info("Quaternion: [{}]", request.quat);
+        spdlog::info("Position: {}", request.pos);
+        spdlog::info("Quaternion: {}", request.quat);
         attach_model(request, sim);
         spdlog::info("Model loaded: {}", request.model_filename);
         query.reply(zenoh::KeyExpr("attach_model"), zenoh::ext::serialize(true));
@@ -633,14 +619,6 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
 
       d = mj_makeData(m);
     }
-    // attach_model(
-    //     AttachModelRequst{
-    //         "/home/juruc/workspaces/robotics_playground/ramp/external/mujoco_menagerie/trs_so_arm100/so_arm100.xml",
-    //         "attachment_site",
-    //         std::experimental::make_array(0.5, 0.5, 0.0),
-    //         std::experimental::make_array(0.0, 0.0, 0.0, 1.0),
-    //     },
-    //     *sim);
     if (d) {
       sim->Load(m, d, filename);
 

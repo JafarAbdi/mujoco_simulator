@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "simulate.h"
+
 #include <mujoco/mjdata.h>
 #include <mujoco/mjui.h>
 #include <mujoco/mjvisualize.h>
 #include <mujoco/mjxmacro.h>
 #include <mujoco/mujoco.h>
-#include <simulate.h>
 
 #include <algorithm>
 #include <atomic>
@@ -33,6 +34,7 @@
 #include <utility>
 
 #include "array_safety.h"
+#include "fmt/format.h"
 #include "lodepng.h"
 #include "platform_ui_adapter.h"
 
@@ -2148,6 +2150,8 @@ void Simulate::LoadOnRenderThread() {
     actuator_names_.emplace_back(this->m_->names + this->m_->name_actuatoradr[i]);
   }
 
+  decorative_geoms_.clear();
+
   qpos_.resize(this->m_->nq);
   std::memcpy(qpos_.data(), this->d_->qpos, sizeof(this->d_->qpos[0]) * this->m_->nq);
   qpos_prev_ = qpos_;
@@ -2269,6 +2273,19 @@ void Simulate::LoadOnRenderThread() {
 
 //------------------------------------------- rendering --------------------------------------------
 
+void AddGeom(mjvScene* scene, const DecorativeGeometry& geom) {
+  // TODO(juruc): Should print a warning
+  // If no available geoms, return
+  if (scene->ngeom >= scene->maxgeom) return;
+
+  // src/render/render_gl3.c
+  mjv_initGeom(
+      &scene->geoms[scene->ngeom], geom.type, geom.size.data(), geom.pos.data(), geom.mat.data(), geom.rgba.data());
+  scene->geoms[scene->ngeom].category = mjCAT_DECOR;
+  // Increment ngeom
+  scene->ngeom += 1;
+}
+
 // render the ui to the window
 void Simulate::Render() {
   // update rendering context buffer size if required
@@ -2385,6 +2402,13 @@ void Simulate::Render() {
       mjui_update(SECT_CONTROL, -1, &this->ui1, &this->uistate, &this->platform_ui->mjr_context());
     }
     pending_.ui_update_ctrl = false;
+  }
+
+  // Modify scene
+  if (uiloadrequest.load() == 0) {
+    for (const auto& [geom_name, geom] : decorative_geoms_) {
+      AddGeom(&scn, geom);
+    }
   }
 
   // render scene

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16...3.27)
 
-project(mujoco_zenoh
+project(mujoco_simulator_cpp
     VERSION 0.0.1
     DESCRIPTION "MuJoCo Simulate with zenoh interface"
     LANGUAGES CXX C
@@ -12,6 +12,7 @@ include(FetchContent)
 include(GNUInstallDirs)
 
 set(MUJOCO_VERSION "3.2.6")
+set(ZENOH_VERSION "1.1.0")
 
 set(FETCHCONTENT_QUIET OFF)
 # Download and extract MuJoCo
@@ -21,6 +22,23 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(mujoco)
+
+FetchContent_Declare(
+    zenoh-cpp
+    URL "https://github.com/eclipse-zenoh/zenoh-cpp/releases/download/${ZENOH_VERSION}/zenohcpp-${ZENOH_VERSION}-standalone.zip"
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(zenoh-cpp)
+
+FetchContent_Declare(
+    zenoh-c
+    URL "https://github.com/eclipse-zenoh/zenoh-c/releases/download/${ZENOH_VERSION}/zenoh-c-${ZENOH_VERSION}-x86_64-unknown-linux-gnu-standalone.zip"
+    GIT_PROGRESS TRUE
+)
+FetchContent_MakeAvailable(zenoh-c)
+
+list(APPEND CMAKE_PREFIX_PATH "${zenoh-cpp_SOURCE_DIR}")
+list(APPEND CMAKE_PREFIX_PATH "${zenoh-c_SOURCE_DIR}")
 
 find_package(range-v3 REQUIRED)
 find_package(zenohc REQUIRED)

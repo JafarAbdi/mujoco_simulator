@@ -1,3 +1,0 @@
-[submodule "external/zenoh-cpp"]
-	path = external/zenoh-cpp
-	url = https://github.com/eclipse-zenoh/zenoh-cpp.git

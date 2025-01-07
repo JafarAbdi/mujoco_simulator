@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-from dataclasses import dataclass
 from pathlib import Path
 
 import zenoh
@@ -18,15 +17,10 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
-
-@dataclass
-class AttachModelRequest:
-    model_filename: str
-    site_name: str
-    pos: list[float]
-    quat: list[float]
-    prefix: str
-    suffix: str
+FILE_PATH = Path(__file__).parent
+MOCAP_FILE_PATH = FILE_PATH / "mocap.xml"
+MOCAP_CHILD_BODY_NAME = "target"
+MOCAP_PREFIX = "mocap/target"
 
 
 class MuJoCoInterface:
@@ -49,34 +43,63 @@ class MuJoCoInterface:
         )
         self._ctrl_publisher = self._session.declare_publisher("robot/ctrl")
 
-    def attach_model(
+    # TODO: Add removing models + Same for mocap
+    def attach_model(  # noqa: PLR0913
         self,
-        attach_model_request: AttachModelRequest,
+        model_filename: str,
+        parent_body_name: str,
+        child_body_name: str,
+        pose: tuple[list[float], list[float]],
+        prefix: str,
+        site_name: str | None = None,
     ):
         """Send a reset request to the simulator.
 
         Args:
             model_filename: The filename of the model to load.
-            keyframe: The name of the keyframe to use after loading/resetting the model.
+            parent_body_name: The name of the parent body (e.g., "world").
+            child_body_name: The name of the child body (e.g., "robot"), should exist in @model_filename.
+            pose: The pose of the child body in the parent body frame as ([x, y, z], [qx, qy, qz, qw]).
+            prefix: The prefix to use for the child body.
+            site_name: The name of the site to attach the child
 
         Raises:
-            RuntimeError: If the reset request fails.
+            RuntimeError: If the attach model request fails.
         """
-        attach_model_request.model_filename = str(
-            Path(attach_model_request.model_filename).resolve(),
-        )
+        pos, quat = pose
+        assert len(pos) == 3
+        assert len(quat) == 4
+        mj_quat = [
+            quat[3],
+            quat[0],
+            quat[1],
+            quat[2],
+        ]  # mujoco uses [qw, qx, qy, qz] instead of [qx, qy, qz, qw]
         replies = list(
             self._session.get(
                 "attach_model",
                 payload=zenoh.ZBytes(
-                    json.dumps(attach_model_request.__dict__).encode(),
+                    json.dumps(
+                        {
+                            "model_filename": str(
+                                Path(model_filename).resolve(),
+                            ),
+                            "parent_body_name": parent_body_name,
+                            "child_body_name": child_body_name,
+                            "site_name": site_name or "",
+                            "pos": pos,
+                            "quat": mj_quat,
+                            "prefix": prefix,
+                            "suffix": "",
+                        },
+                    ).encode(),
                 ),
             ),
         )
         assert len(replies) == 1
         ok = zenoh.ext.z_deserialize(bool, replies[0].ok.payload)
         if not ok:
-            msg = f"Failed to reset the simulation: {error_msg}"
+            msg = "Failed to attach model"
             raise RuntimeError(msg)
 
     def reset(self, *, model_filename: str | None = None, keyframe: str | None = None):
@@ -144,6 +167,21 @@ class MuJoCoInterface:
             pass
         return zenoh.ext.z_deserialize(list[float], qvel.payload)
 
+    def add_mocap(self, parent_body_name: str, pose: tuple[list[float], list[float]]):
+        """Add a mocap to the simulator.
+
+        Args:
+            parent_body_name: The name of the parent body.
+            pose: The pose of the mocap in the parent body frame as ([x, y, z], [qx, qx, qy, qw]).
+        """
+        self.attach_model(
+            MOCAP_FILE_PATH,
+            parent_body_name,
+            MOCAP_CHILD_BODY_NAME,
+            pose,
+            MOCAP_PREFIX,
+        )
+
     def mocap(self):
         """Get the current mocap.
 
@@ -152,7 +190,11 @@ class MuJoCoInterface:
         """
         while (mocap := self._mocap_subscriber.try_recv()) is None:
             pass
-        return zenoh.ext.z_deserialize(tuple[list[float], list[float]], mocap.payload)
+        mocap_pose = json.loads(zenoh.ext.z_deserialize(str, mocap.payload))
+        return (
+            mocap_pose["pos"],
+            mocap_pose["quat"],
+        )
 
     def ctrl(self, ctrl: dict[int, float]):
         """Send ctrl to the simulator.

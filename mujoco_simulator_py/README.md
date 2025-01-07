@@ -35,3 +35,9 @@ To change the logging verbosity
 ```bash
 LOG_LEVEL=Debug pixi run python examples/...
 ```
+
+### Attach models example
+
+```bash
+pixi run python examples/attach_models_demo.py mujoco_menagerie/franka_fr3/scene.xml  mujoco_menagerie/kinova_gen3/gen3.xml base_link
+```

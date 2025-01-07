@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 include(GNUInstallDirs)
 
-set(MUJOCO_VERSION "3.2.5")
+set(MUJOCO_VERSION "3.2.6")
 
 set(FETCHCONTENT_QUIET OFF)
 # Download and extract MuJoCo

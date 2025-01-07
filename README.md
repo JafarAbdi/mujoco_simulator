@@ -14,3 +14,7 @@ pixi run build && .build/mujoco/bin/mujoco_simulator .build/mujoco/_deps/mujoco-
 ```
 
 ## MuJoCo Simulator Python
+
+## Acknowledgements
+
+- The simulator is based on [MuJoCo's simulate](https://github.com/google-deepmind/mujoco/tree/main/simulate) with some modifications. See commit history for what exactly was changed.

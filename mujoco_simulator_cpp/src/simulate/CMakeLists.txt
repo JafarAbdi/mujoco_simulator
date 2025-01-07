@@ -129,10 +129,9 @@ add_library(mujoco::libsimulate ALIAS libsimulate)
 
 target_sources(
   libsimulate
-  PUBLIC ${mujoco_SOURCE_DIR}/simulate/simulate.h
-  PRIVATE ${mujoco_SOURCE_DIR}/simulate/simulate.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h
+  PRIVATE simulate.cc ${mujoco_SOURCE_DIR}/simulate/array_safety.h ${CMAKE_CURRENT_SOURCE_DIR}/simulate.h
 )
-target_include_directories(libsimulate PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(libsimulate PUBLIC ${mujoco_SOURCE_DIR}/simulate)
 target_compile_options(libsimulate PRIVATE ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_link_libraries(libsimulate PUBLIC lodepng mujoco::platform_ui_adapter mujoco::mujoco)
 target_link_options(libsimulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})

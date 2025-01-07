@@ -17,6 +17,9 @@ configure = { cmd = [
   ".build/",
 ] }
 build = { cmd = "cmake --build .build/", depends_on = ["configure"] }
+install = { cmd = "cmake --install .build/ --prefix .install", depends_on = [
+  "build",
+] }
 
 [dependencies]
 
@@ -39,5 +42,22 @@ taplo = "*"
 [feature.lint.tasks]
 lint = "pre-commit run --all-files"
 
+[feature.appimage.activation.env]
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:.build/_deps/mujoco-src/lib:.build/_deps/zenoh-c-src/lib"
+
+[feature.appimage.tasks]
+build-appimage = { cmd = """
+wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage && \
+chmod +x linuxdeploy-x86_64.AppImage && \
+./linuxdeploy-x86_64.AppImage --appdir .install/ \
+                              -d resources/mujoco_simulator.desktop \
+                              -i resources/mujoco_simulator.png \
+                              --output appimage \
+                              --executable=.install/bin/mujoco_simulator
+""", depends_on = [
+  "install",
+] }
+
 [environments]
 lint = { features = ["lint"], no-default-feature = true }
+appimage = { features = ["appimage"] }

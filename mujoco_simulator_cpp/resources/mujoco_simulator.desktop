@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=mujoco_simulator
+Exec=mujoco_simulator
+Icon=mujoco_simulator
+Categories=Development;

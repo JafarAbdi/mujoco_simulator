@@ -1,4 +1,5 @@
 #include <mujoco/mjtnum.h>
+#include <simulate/simulate.h>
 
 #include <nlohmann/json.hpp>
 #include <string>
@@ -18,6 +19,20 @@ struct AttachModelRequst {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
     AttachModelRequst, model_filename, parent_body_name, child_body_name, site_name, pos, quat, prefix, suffix);
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DecorativeGeometry, type, size, pos);
+
+NLOHMANN_JSON_SERIALIZE_ENUM(
+    mjtGeom,
+    {
+        {mjGEOM_PLANE, "plane"},     {mjGEOM_HFIELD, "hfield"},       {mjGEOM_SPHERE, "sphere"},
+        {mjGEOM_CAPSULE, "capsule"}, {mjGEOM_ELLIPSOID, "ellipsoid"}, {mjGEOM_CYLINDER, "cylinder"},
+        {mjGEOM_BOX, "box"},         {mjGEOM_MESH, "mesh"},           {mjGEOM_SDF, "sdf"},
+        {mjGEOM_ARROW, "arrow"},     {mjGEOM_ARROW1, "arrow1"},       {mjGEOM_ARROW2, "arrow2"},
+        {mjGEOM_LINE, "line"},       {mjGEOM_LINEBOX, "linebox"},     {mjGEOM_FLEX, "flex"},
+        {mjGEOM_SKIN, "skin"},       {mjGEOM_LABEL, "label"},         {mjGEOM_TRIANGLE, "triangle"},
+        {mjGEOM_NONE, nullptr},
+    });
 
 namespace zenoh::ext::detail {
 template <>

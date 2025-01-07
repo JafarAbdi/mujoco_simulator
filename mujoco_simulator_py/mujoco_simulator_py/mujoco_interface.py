@@ -43,6 +43,72 @@ class MuJoCoInterface:
         )
         self._ctrl_publisher = self._session.declare_publisher("robot/ctrl")
 
+    def add_decorative_geometry(
+        self,
+        name: str,
+        geom_type: str,
+        pos: list[float],
+        size: list[float],
+    ):
+        """Add a decorative geometry object to the simulator.
+
+        The object will be displayed in the GUI but will not interact with the simulation. If object with the same name it will be replaced.
+
+        Args:
+            name: The name of the geometry object.
+            geom_type: The type of the geometry object (e.g., "box").
+            pos: The position of the geometry object as [x, y, z].
+            size: The size of the geometry object as [x, y, z].
+
+        Raises:
+            RuntimeError: If the add geometry object request fails.
+        """
+        assert len(pos) == 3
+        assert len(size) == 3
+        replies = list(
+            self._session.get(
+                "add_geometry",
+                payload=zenoh.ext.z_serialize(
+                    (
+                        name,
+                        json.dumps(
+                            {
+                                "type": geom_type,
+                                "pos": pos,
+                                "size": size,
+                            },
+                        ).encode(),
+                    ),
+                ),
+            ),
+        )
+        assert len(replies) == 1
+        ok = zenoh.ext.z_deserialize(bool, replies[0].ok.payload)
+        if not ok:
+            msg = "Failed to add geometry object"
+            raise RuntimeError(msg)
+
+    def remove_decorative_geometry(self, name: str):
+        """Remove a decorative geometry object from the simulator.
+
+        Args:
+            name: The name of the geometry object.
+
+        Raises:
+            RuntimeError: If the remove geometry object request fails.
+        """
+        replies = list(
+            self._session.get(
+                "remove_geometry",
+                payload=zenoh.ext.z_serialize(name),
+            ),
+        )
+        assert len(replies) == 1
+        ok = zenoh.ext.z_deserialize(bool, replies[0].ok.payload)
+        if not ok:
+            msg = "Failed to add geometry object"
+            raise RuntimeError(msg)
+
     # TODO: Add removing models + Same for mocap
     def attach_model(  # noqa: PLR0913
         self,

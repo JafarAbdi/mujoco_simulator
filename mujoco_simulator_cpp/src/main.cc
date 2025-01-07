@@ -14,6 +14,7 @@
 
 #include <fmt/ranges.h>
 #include <mujoco/mujoco.h>
+#include <simulate/simulate.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -43,7 +44,6 @@
 
 #include "array_safety.h"
 #include "glfw_adapter.h"
-#include "simulate.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
 
@@ -482,6 +482,28 @@ void PhysicsLoop(mj::Simulate& sim) {
         query.reply(zenoh::KeyExpr("model"),
                     (std::filesystem::current_path() / sim.filename).string(),
                     {.encoding = zenoh::Encoding::Predefined::text_plain()});
+      },
+      zenoh::closures::none);
+
+  // Should we use a subscriber for this?
+  auto remove_geometry_queryable = session.declare_queryable(
+      zenoh::KeyExpr("remove_geometry"),
+      [&](const zenoh::Query& query) {
+        std::unique_lock lock(sim.mtx);
+        const auto object_name = zenoh::ext::deserialize<std::string>(query.get_payload().value());
+        sim.decorative_geoms_.erase(object_name);
+        query.reply(zenoh::KeyExpr("remove_geometry"), zenoh::ext::serialize(true));
+      },
+      zenoh::closures::none);
+
+  auto add_geometry_queryable = session.declare_queryable(
+      zenoh::KeyExpr("add_geometry"),
+      [&](const zenoh::Query& query) {
+        std::unique_lock lock(sim.mtx);
+        const auto [object_name, geometry] =
+            zenoh::ext::deserialize<std::tuple<std::string, nlohmann::json>>(query.get_payload().value());
+        sim.decorative_geoms_.insert_or_assign(object_name, geometry.get<DecorativeGeometry>());
+        query.reply(zenoh::KeyExpr("add_geometry"), zenoh::ext::serialize(true));
       },
       zenoh::closures::none);
 

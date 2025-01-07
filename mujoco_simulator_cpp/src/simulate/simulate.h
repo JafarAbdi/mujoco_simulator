@@ -18,6 +18,7 @@
 #include <mujoco/mjui.h>
 #include <mujoco/mujoco.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -26,10 +27,19 @@
 #include <optional>
 #include <ratio>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "platform_ui_adapter.h"
+
+struct DecorativeGeometry {
+  mjtGeom type;
+  std::array<mjtNum, 3> size;
+  std::array<mjtNum, 3> pos;
+  std::array<mjtNum, 9> mat = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  std::array<float, 4> rgba = {0.0, 1.0, 0.0, 1.0};
+};
 
 namespace mujoco {
 
@@ -125,6 +135,9 @@ class Simulate {
   std::vector<std::string> actuator_names_;
 
   std::vector<mjtNum> history_;  // history buffer (nhistory x state_size)
+
+  // Additional user-defined visualization geoms
+  std::unordered_map<std::string, DecorativeGeometry> decorative_geoms_;
 
   // mjModel and mjData fields that can be modified by the user through the GUI
   std::vector<mjtNum> qpos_;
@@ -272,7 +285,7 @@ class Simulate {
 #ifdef __APPLE__
                                   {mjITEM_CHECKINT, "Fullscreen", 0, &this->fullscreen, " #294"},
 #else
-                                   {mjITEM_CHECKINT, "Fullscreen", 1, &this->fullscreen, " #294"},
+                                  {mjITEM_CHECKINT, "Fullscreen", 1, &this->fullscreen, " #294"},
 #endif
                                   {mjITEM_CHECKINT, "Vertical Sync", 1, &this->vsync, ""},
                                   {mjITEM_CHECKINT, "Busy Wait", 1, &this->busywait, ""},

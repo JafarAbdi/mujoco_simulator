@@ -62,7 +62,7 @@ target_link_libraries(
   nlohmann_json::nlohmann_json
 )
 target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
-target_include_directories(mujoco_simulator PRIVATE ${mujoco_SOURCE_DIR}/simulate include)
+target_include_directories(mujoco_simulator PRIVATE include src)
 
 add_executable(mujoco_model_view src/mujoco_model_view.cpp)
 target_compile_features(mujoco_model_view PRIVATE cxx_std_20)

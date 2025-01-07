@@ -460,7 +460,7 @@ void PhysicsLoop(mj::Simulate& sim) {
       zenoh::KeyExpr("attach_model"),
       [&](const zenoh::Query& query) {
         const auto request =
-            nlohmann::json::parse(query.get_payload().value().get().as_string()).get<AttachModelRequst>();
+            zenoh::ext::deserialize<nlohmann::json>(query.get_payload().value()).get<AttachModelRequst>();
         spdlog::info("Attaching model: {}", request.model_filename);
         spdlog::info("Parent body name: {}", request.parent_body_name);
         spdlog::info("Child body name: {}", request.child_body_name);

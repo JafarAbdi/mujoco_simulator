@@ -78,7 +78,7 @@ class MuJoCoInterface:
         replies = list(
             self._session.get(
                 "attach_model",
-                payload=zenoh.ZBytes(
+                payload=zenoh.ext.z_serialize(
                     json.dumps(
                         {
                             "model_filename": str(

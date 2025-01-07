@@ -1,10 +1,22 @@
-[project]
+[workspace]
 authors = ["JafarAbdi <jafar.uruc@gmail.com>"]
 channels = ["conda-forge"]
 description = "Add a short description here"
-name = "mujoco_simulator_cpp"
 platforms = ["linux-64"]
+preview = ["pixi-build"]
+
+[package]
+name = "mujoco_simulator_cpp"
 version = "0.1.0"
+
+[build-system]
+
+build-backend = { name = "pixi-build-cmake", version = "*" }
+
+channels = [
+  "https://prefix.dev/pixi-build-backends",
+  "https://prefix.dev/conda-forge",
+]
 
 [tasks]
 
@@ -14,22 +26,21 @@ configure = { cmd = [
   "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
   "-S",
   ".",
+  "-B",
   ".build/",
 ] }
 build = { cmd = "cmake --build .build/", depends_on = ["configure"] }
 
 [dependencies]
+mujoco_simulator_cpp = { path = "." }
 
-ninja = ">=1.12.1,<2"
-cmake = ">=3.30.5,<4"
-lld = ">=19.1.2,<20"
-rust = ">=1.81.0,<2"
+[host-dependencies]
 glfw = ">=3.4,<4"
-cpp-expected = ">=1.1.0,<2"
 spdlog = ">=1.14.1,<2"
 fmt = ">=11.0.2,<12"
 range-v3 = ">=0.12.0,<0.13"
 nlohmann_json = ">=3.11.3,<4"
+mesalib = "*"
 
 [feature.lint.dependencies]
 pre-commit = "*"

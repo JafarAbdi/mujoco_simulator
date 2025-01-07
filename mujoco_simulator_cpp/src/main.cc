@@ -23,11 +23,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <experimental/array>
 #include <filesystem>
 #include <future>
 #include <iostream>
 #include <memory>
 #include <mujoco_simulator/mujoco_model_view.hpp>
+#include <mujoco_simulator/types.hpp>
 #include <mutex>
 #include <new>
 #include <range/v3/algorithm/for_each.hpp>
@@ -44,6 +46,19 @@
 #include "simulate.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
+
+#define ASSIGN_OR_RETURN_FALSE(lhs, rhs, ...) \
+  auto* lhs = (rhs);                          \
+  if (!lhs) {                                 \
+    spdlog::error(__VA_ARGS__);               \
+    return false;                             \
+  }
+
+#define CHECK_OR_RETURN_FALSE(ptr, ...) \
+  if (!ptr) {                           \
+    spdlog::error(__VA_ARGS__);         \
+    return false;                       \
+  }
 
 extern "C" {
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -69,6 +84,7 @@ const int kErrorLength = 1024;          // load error string length
 // model and data
 mjModel* m = nullptr;
 mjData* d = nullptr;
+mjSpec* spec = nullptr;
 
 using Seconds = std::chrono::duration<double>;
 
@@ -244,7 +260,15 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
       mju::strcpy_arr(loadError, "could not load binary model");
     }
   } else {
-    mnew = mj_loadXML(filename, nullptr, loadError, kErrorLength);
+    // You have to use spec, otherwise recompiling won't have the qpos from old data
+    // See: https://github.com/JafarAbdi/mujoco/tree/spec_bug
+    spec = mj_parseXML(filename, nullptr, loadError, kErrorLength);
+    if (!spec) {
+      spdlog::error("Failed to parse spec: {}", std::span(loadError, kErrorLength));
+      exit(1);
+    }
+
+    mnew = mj_compile(spec, nullptr);  // mj_loadXML(filename, nullptr, loadError, kErrorLength);
 
     // remove trailing newline character from loadError
     if (loadError[0]) {
@@ -278,6 +302,76 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
   mju::strcpy_arr(sim.load_error, loadError);
 
   return mnew;
+}
+
+bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
+  mjSpec* model_spec = nullptr;
+  mjModel* mnew = nullptr;
+  mjData* dnew = nullptr;
+  {
+    std::unique_lock lock(sim.mtx);
+    model_spec = mj_parseXML(request.model_filename.c_str(), nullptr, nullptr, 0);
+    if (!model_spec) {
+      spdlog::error("Failed to parse spec");
+      return false;
+    }
+
+    ASSIGN_OR_RETURN_FALSE(child_body,
+                           mjs_findBody(model_spec, request.child_body_name.c_str()),
+                           "Failed to find body: {}",
+                           request.child_body_name);
+
+    ASSIGN_OR_RETURN_FALSE(parent_body,
+                           mjs_findBody(spec, request.parent_body_name.c_str()),
+                           "Failed to find body: {}",
+                           request.parent_body_name);
+
+    if (!request.site_name.empty()) {
+      ASSIGN_OR_RETURN_FALSE(
+          attachment_site, mjs_addSite(parent_body, nullptr), "Failed to find site: {}", request.site_name);
+      mjs_setString(attachment_site->name, request.site_name.c_str());
+      mju_copy3(attachment_site->pos, request.pos.data());
+      mju_copy4(attachment_site->quat, request.quat.data());
+      CHECK_OR_RETURN_FALSE(
+          mjs_attachToSite(attachment_site, child_body, request.prefix.c_str(), request.suffix.c_str()),
+          "Failed to attach body to site");
+    } else {
+      ASSIGN_OR_RETURN_FALSE(frame, mjs_addFrame(parent_body, nullptr), "Failed to add frame");
+      CHECK_OR_RETURN_FALSE(mjs_attachBody(frame, child_body, request.prefix.c_str(), request.suffix.c_str()),
+                            "Failed to attach body to frame");
+      mju_copy3(frame->pos, request.pos.data());
+      mju_copy4(frame->quat, request.quat.data());
+    }
+
+    mnew = mj_copyModel(nullptr, m);
+    dnew = mj_copyData(nullptr, m, d);
+    if (mj_recompile(spec, nullptr, mnew, dnew) != 0) {
+      spdlog::error("Failed to recompile model");
+      return false;
+    }
+
+    // TODO(juruc): WTF why mocap pose is set to some crazy random values?? Why is the value from frame-(pos/quat) not
+    // used here?
+    if (mnew->nmocap > 0) {
+      mju_copy3(dnew->mocap_pos, request.pos.data());
+      mju_copy4(dnew->mocap_quat, request.quat.data());
+    }
+  }
+  sim.Load(mnew, dnew, sim.filename);
+
+  {
+    std::unique_lock _(sim.mtx);
+
+    mj_deleteData(d);
+    mj_deleteModel(m);
+    mj_deleteSpec(model_spec);
+
+    m = mnew;
+    d = dnew;
+    mj_forward(m, d);
+  }
+
+  return true;
 }
 
 void load_model(mujoco::Simulate& sim) {
@@ -359,6 +453,26 @@ void PhysicsLoop(mj::Simulate& sim) {
         spdlog::info("Simulation reset");
         session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
         session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
+      },
+      zenoh::closures::none);
+
+  auto attach_model_queryable = session.declare_queryable(
+      zenoh::KeyExpr("attach_model"),
+      [&](const zenoh::Query& query) {
+        const auto request =
+            zenoh::ext::deserialize<nlohmann::json>(query.get_payload().value()).get<AttachModelRequst>();
+        spdlog::info("Attaching model: {}", request.model_filename);
+        spdlog::info("Parent body name: {}", request.parent_body_name);
+        spdlog::info("Child body name: {}", request.child_body_name);
+        spdlog::info("Site name: '{}'", request.site_name);
+        spdlog::info("Position: {}", request.pos);
+        spdlog::info("Quaternion: {}", request.quat);
+        if (!attach_model(request, sim)) {
+          query.reply(zenoh::KeyExpr("attach_model"), zenoh::ext::serialize(false));
+          return;
+        }
+        spdlog::info("Model loaded: {}", request.model_filename);
+        query.reply(zenoh::KeyExpr("attach_model"), zenoh::ext::serialize(true));
       },
       zenoh::closures::none);
 
@@ -491,6 +605,12 @@ void PhysicsLoop(mj::Simulate& sim) {
               mj_step(m, d);
               session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
               session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
+              // TODO: Right now we only send pose for the first mocap
+              if (m->nmocap > 0) {
+                session.put("robot/mocap",
+                            zenoh::ext::serialize(nlohmann::json(
+                                {{"pos", std::span(d->mocap_pos, 3)}, {"quat", std::span(d->mocap_quat, 4)}})));
+              }
               const char* message = Diverged(m->opt.disableflags, d);
               if (message) {
                 sim.run = 0;
@@ -555,6 +675,7 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
   PhysicsLoop(*sim);
 
   // delete everything we allocated
+  mj_deleteSpec(spec);
   mj_deleteData(d);
   mj_deleteModel(m);
 }

@@ -1,17 +1,2 @@
 CompileFlags:
-  CompilationDatabase: mujoco_simulator_cpp/.build/mujoco
-If:
-  PathMatch:
-  - mujoco_simulator_cpp/src/.*
----
-CompileFlags:
-  CompilationDatabase: mujoco_simulator_cpp/.build/zenoh-cpp/
-If:
-  PathMatch:
-  - external/zenoh-cpp/.*
----
-CompileFlags:
-  CompilationDatabase: mujoco_simulator_py/.build/
-If:
-  PathMatch:
-  - external/trac_ik/.*
+  CompilationDatabase: mujoco_simulator_cpp/.build

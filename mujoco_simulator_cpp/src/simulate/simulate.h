@@ -15,6 +15,9 @@
 #ifndef MUJOCO_SIMULATE_SIMULATE_H_
 #define MUJOCO_SIMULATE_SIMULATE_H_
 
+#include <mujoco/mjui.h>
+#include <mujoco/mujoco.h>
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -26,8 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include <mujoco/mjui.h>
-#include <mujoco/mujoco.h>
 #include "platform_ui_adapter.h"
 
 namespace mujoco {
@@ -49,9 +50,11 @@ class Simulate {
   static constexpr int kMaxGeom = 20000;
 
   // create object and initialize the simulate ui
-  Simulate(
-      std::unique_ptr<PlatformUIAdapter> platform_ui_adapter,
-      mjvCamera* cam, mjvOption* opt, mjvPerturb* pert, bool is_passive);
+  Simulate(std::unique_ptr<PlatformUIAdapter> platform_ui_adapter,
+           mjvCamera* cam,
+           mjvOption* opt,
+           mjvPerturb* pert,
+           bool is_passive);
 
   // Synchronize mjModel and mjData state with UI inputs, and update
   // visualization.
@@ -215,12 +218,8 @@ class Simulate {
   bool speed_changed = true;
   float measured_slowdown = 1.0;
   // logarithmically spaced real-time slow-down coefficients (percent)
-  static constexpr float percentRealTime[] = {
-      100, 80, 66,  50,  40, 33,  25,  20, 16,  13,
-      10,  8,  6.6, 5.0, 4,  3.3, 2.5, 2,  1.6, 1.3,
-      1,  .8, .66, .5,  .4, .33, .25, .2, .16, .13,
-     .1
-  };
+  static constexpr float percentRealTime[] = {100, 80, 66,  50,  40, 33, 25,  20, 16, 13,  10,  8,  6.6, 5.0, 4, 3.3,
+                                              2.5, 2,  1.6, 1.3, 1,  .8, .66, .5, .4, .33, .25, .2, .16, .13, .1};
 
   // control noise
   double ctrl_noise_std = 0.0;
@@ -264,54 +263,46 @@ class Simulate {
 
   // Constant arrays needed for the option section of UI and the UI interface
   // TODO setting the size here is not ideal
-  const mjuiDef def_option[13] = {
-    {mjITEM_SECTION,  "Option",        mjPRESERVE, nullptr,  "AO"},
-    {mjITEM_CHECKINT, "Help",          2, &this->help,       " #290"},
-    {mjITEM_CHECKINT, "Info",          2, &this->info,       " #291"},
-    {mjITEM_CHECKINT, "Profiler",      2, &this->profiler,   " #292"},
-    {mjITEM_CHECKINT, "Sensor",        2, &this->sensor,     " #293"},
-    {mjITEM_CHECKINT, "Pause update",  2, &this->pause_update,    ""},
-  #ifdef __APPLE__
-    {mjITEM_CHECKINT, "Fullscreen",    0, &this->fullscreen, " #294"},
-  #else
-    {mjITEM_CHECKINT, "Fullscreen",    1, &this->fullscreen, " #294"},
-  #endif
-    {mjITEM_CHECKINT, "Vertical Sync", 1, &this->vsync,      ""},
-    {mjITEM_CHECKINT, "Busy Wait",     1, &this->busywait,   ""},
-    {mjITEM_SELECT,   "Spacing",       1, &this->spacing,    "Tight\nWide"},
-    {mjITEM_SELECT,   "Color",         1, &this->color,      "Default\nOrange\nWhite\nBlack"},
-    {mjITEM_SELECT,   "Font",          1, &this->font,       "50 %\n100 %\n150 %\n200 %\n250 %\n300 %"},
-    {mjITEM_END}
-  };
-
+  const mjuiDef def_option[13] = {{mjITEM_SECTION, "Option", mjPRESERVE, nullptr, "AO"},
+                                  {mjITEM_CHECKINT, "Help", 2, &this->help, " #290"},
+                                  {mjITEM_CHECKINT, "Info", 2, &this->info, " #291"},
+                                  {mjITEM_CHECKINT, "Profiler", 2, &this->profiler, " #292"},
+                                  {mjITEM_CHECKINT, "Sensor", 2, &this->sensor, " #293"},
+                                  {mjITEM_CHECKINT, "Pause update", 2, &this->pause_update, ""},
+#ifdef __APPLE__
+                                  {mjITEM_CHECKINT, "Fullscreen", 0, &this->fullscreen, " #294"},
+#else
+                                   {mjITEM_CHECKINT, "Fullscreen", 1, &this->fullscreen, " #294"},
+#endif
+                                  {mjITEM_CHECKINT, "Vertical Sync", 1, &this->vsync, ""},
+                                  {mjITEM_CHECKINT, "Busy Wait", 1, &this->busywait, ""},
+                                  {mjITEM_SELECT, "Spacing", 1, &this->spacing, "Tight\nWide"},
+                                  {mjITEM_SELECT, "Color", 1, &this->color, "Default\nOrange\nWhite\nBlack"},
+                                  {mjITEM_SELECT, "Font", 1, &this->font, "50 %\n100 %\n150 %\n200 %\n250 %\n300 %"},
+                                  {mjITEM_END}};
 
   // simulation section of UI
-  const mjuiDef def_simulation[14] = {
-    {mjITEM_SECTION,   "Simulation",    mjPRESERVE, nullptr,     "AS"},
-    {mjITEM_RADIO,     "",              5, &this->run,           "Pause\nRun"},
-    {mjITEM_BUTTON,    "Reset",         2, nullptr,              " #259"},
-    {mjITEM_BUTTON,    "Reload",        5, nullptr,              "CL"},
-    {mjITEM_BUTTON,    "Align",         2, nullptr,              "CA"},
-    {mjITEM_BUTTON,    "Copy pose",     2, nullptr,              "CC"},
-    {mjITEM_SLIDERINT, "Key",           3, &this->key,           "0 0"},
-    {mjITEM_BUTTON,    "Load key",      3},
-    {mjITEM_BUTTON,    "Save key",      3},
-    {mjITEM_SLIDERNUM, "Noise scale",   5, &this->ctrl_noise_std,  "0 1"},
-    {mjITEM_SLIDERNUM, "Noise rate",    5, &this->ctrl_noise_rate, "0 4"},
-    {mjITEM_SEPARATOR, "History",       1},
-    {mjITEM_SLIDERINT, "",              5, &this->scrub_index,     "0 0"},
-    {mjITEM_END}
-  };
-
+  const mjuiDef def_simulation[14] = {{mjITEM_SECTION, "Simulation", mjPRESERVE, nullptr, "AS"},
+                                      {mjITEM_RADIO, "", 5, &this->run, "Pause\nRun"},
+                                      {mjITEM_BUTTON, "Reset", 2, nullptr, " #259"},
+                                      {mjITEM_BUTTON, "Reload", 5, nullptr, "CL"},
+                                      {mjITEM_BUTTON, "Align", 2, nullptr, "CA"},
+                                      {mjITEM_BUTTON, "Copy pose", 2, nullptr, "CC"},
+                                      {mjITEM_SLIDERINT, "Key", 3, &this->key, "0 0"},
+                                      {mjITEM_BUTTON, "Load key", 3},
+                                      {mjITEM_BUTTON, "Save key", 3},
+                                      {mjITEM_SLIDERNUM, "Noise scale", 5, &this->ctrl_noise_std, "0 1"},
+                                      {mjITEM_SLIDERNUM, "Noise rate", 5, &this->ctrl_noise_rate, "0 4"},
+                                      {mjITEM_SEPARATOR, "History", 1},
+                                      {mjITEM_SLIDERINT, "", 5, &this->scrub_index, "0 0"},
+                                      {mjITEM_END}};
 
   // watch section of UI
-  const mjuiDef def_watch[5] = {
-    {mjITEM_SECTION,   "Watch",         mjPRESERVE, nullptr,     "AW"},
-    {mjITEM_EDITTXT,   "Field",         2, this->field,          "qpos"},
-    {mjITEM_EDITINT,   "Index",         2, &this->index,         "1"},
-    {mjITEM_STATIC,    "Value",         2, nullptr,              " "},
-    {mjITEM_END}
-  };
+  const mjuiDef def_watch[5] = {{mjITEM_SECTION, "Watch", mjPRESERVE, nullptr, "AW"},
+                                {mjITEM_EDITTXT, "Field", 2, this->field, "qpos"},
+                                {mjITEM_EDITINT, "Index", 2, &this->index, "1"},
+                                {mjITEM_STATIC, "Value", 2, nullptr, " "},
+                                {mjITEM_END}};
 
   // info strings
   char info_title[Simulate::kMaxFilenameLength] = {0};

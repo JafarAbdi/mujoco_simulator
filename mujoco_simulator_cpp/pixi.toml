@@ -33,6 +33,7 @@ spdlog = ">=1.14.1,<2"
 fmt = ">=11.0.2,<12"
 range-v3 = ">=0.12.0,<0.13"
 nlohmann_json = ">=3.11.3,<4"
+mesalib = ">=24.3.3,<25"
 
 [feature.lint.dependencies]
 pre-commit = "*"

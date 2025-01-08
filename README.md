@@ -4,6 +4,11 @@
 
 You can install the appimage from [releases](https://github.com/JafarAbdi/mujoco_simulator/releases)
 
+```bash
+wget https://github.com/JafarAbdi/mujoco_simulator/releases/download/continuous/mujoco_simulator-x86_64.AppImage -O mujoco_simulator
+chmod +x mujoco_simulator
+```
+
 ## Examples
 
 ```bash

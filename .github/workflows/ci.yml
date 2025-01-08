@@ -24,10 +24,7 @@ jobs:
           frozen: true
           manifest-path: mujoco_simulator_cpp/pixi.toml
           environments: lint
-      - working-directory: mujoco_simulator_cpp
-        run: pixi run lint --color=always --show-diff-on-failure
-      - working-directory: mujoco_simulator_py
-        run: pixi run lint --color=always --show-diff-on-failure
+      - run: pixi run lint --color=always --show-diff-on-failure
   build-simulator:
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -46,22 +43,3 @@ jobs:
           manifest-path: mujoco_simulator_cpp/pixi.toml
       - working-directory: mujoco_simulator_cpp
         run: pixi run build
-  pytest:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Checkout branch
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.8.1
-        with:
-          cache: true
-          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
-          frozen: true
-          manifest-path: mujoco_simulator_py/pyproject.toml
-      - working-directory: mujoco_simulator_py
-        run: pixi run test
-      - working-directory: mujoco_simulator_py
-        run: pixi run -e test test-coverage --color=yes

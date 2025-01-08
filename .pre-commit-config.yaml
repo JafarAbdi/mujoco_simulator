@@ -30,12 +30,6 @@ repos:
       - id: requirements-txt-fixer
       - id: sort-simple-yaml
       - id: trailing-whitespace
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
-    hooks:
-      - id: ruff
-        args: ["--output-format=full", "--fix", "--config", "mujoco_simulator_py/pyproject.toml"]
-      - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v15.0.7
     hooks:

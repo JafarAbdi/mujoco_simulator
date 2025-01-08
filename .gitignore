@@ -1,5 +1,8 @@
 .build
 .mujoco/
+.install/
+linuxdeploy-x86_64.AppImage
+mujoco_simulator-x86_64.AppImage
 
 # pixi environments
 .pixi

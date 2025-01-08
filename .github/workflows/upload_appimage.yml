@@ -1,0 +1,31 @@
+name: Build and Upload AppImage
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  deploy-appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+          frozen: true
+          manifest-path: mujoco_simulator_cpp/pixi.toml
+      - working-directory: mujoco_simulator_cpp
+        run: |
+          sudo apt-get update
+          sudo apt-get install libfuse2
+          pixi run build-appimage
+      - name: Create release and upload artifacts
+        working-directory: mujoco_simulator_cpp
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          wget -q https://github.com/TheAssassin/pyuploadtool/releases/download/continuous/pyuploadtool-x86_64.AppImage
+          chmod +x pyuploadtool-x86_64.AppImage
+          ./pyuploadtool-x86_64.AppImage mujoco_simulator-x86_64.AppImage

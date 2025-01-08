@@ -15,14 +15,11 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           frozen: true
-          manifest-path: mujoco_simulator_cpp/pixi.toml
-      - working-directory: mujoco_simulator_cpp
-        run: |
+      - run: |
           sudo apt-get update
           sudo apt-get install libfuse2
           pixi run build-appimage
       - name: Create release and upload artifacts
-        working-directory: mujoco_simulator_cpp
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

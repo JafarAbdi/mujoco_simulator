@@ -18,7 +18,6 @@ mujoco_simulator SCENE.xml
 ## Build the package locally
 
 ```bash
-cd mujoco_simulator_cpp/
 pixi run build
 pixi run lint
 ```

@@ -1,2 +1,2 @@
 CompileFlags:
-  CompilationDatabase: mujoco_simulator_cpp/.build
+  CompilationDatabase: .build

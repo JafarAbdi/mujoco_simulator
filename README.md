@@ -1,19 +1,28 @@
 ## MuJoCo Simulator CPP
 
-```bash
-cd mujoco_simulator_cpp/
-pixi run install-zenoh-cpp
-pixi run build
-pixi run lint
-```
+## Usage
+
+You can install the appimage from [releases](https://github.com/JafarAbdi/mujoco_simulator/releases)
 
 ## Examples
 
 ```bash
-pixi run build && .build/mujoco/bin/mujoco_simulator .build/mujoco/_deps/mujoco-src/model/car/car.xml
+mujoco_simulator SCENE.xml
 ```
 
-## MuJoCo Simulator Python
+## Build the package locally
+
+```bash
+cd mujoco_simulator_cpp/
+pixi run build
+pixi run lint
+```
+
+## Build AppImage locally
+
+```bash
+pixi run build-appimage
+```
 
 ## Acknowledgements
 

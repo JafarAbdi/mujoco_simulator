@@ -12,28 +12,35 @@ configure = { cmd = [
   "cmake",
   "-GNinja",
   "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+  "-DCMAKE_C_COMPILER=clang",
+  "-DCMAKE_CXX_COMPILER=clang++",
+  "-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld",
+  "-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld",
+  "-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld",
   "-S",
   ".",
   ".build/",
 ] }
-build = { cmd = "cmake --build .build/", depends_on = ["configure"] }
-install = { cmd = "cmake --install .build/ --prefix .install", depends_on = [
+build = { cmd = "cmake --build .build/", depends-on = ["configure"] }
+install = { cmd = "cmake --install .build/ --prefix .install", depends-on = [
   "build",
 ] }
 
 [dependencies]
-
-ninja = ">=1.12.1,<2"
-cmake = ">=3.30.5,<4"
-lld = ">=19.1.2,<20"
-rust = ">=1.81.0,<2"
 glfw = ">=3.4,<4"
 cpp-expected = ">=1.1.0,<2"
 spdlog = ">=1.14.1,<2"
 fmt = ">=11.0.2,<12"
 range-v3 = ">=0.12.0,<0.13"
 nlohmann_json = ">=3.11.3,<4"
+
+ninja = ">=1.12.1,<2"
+cmake = ">=3.30.5,<4"
+lld = ">=19.1.2,<20"
+rust = ">=1.81.0,<2"
 mesalib = ">=24.3.3,<25"
+clangxx = ">=19.1.7,<20"
+llvm-tools = ">=19.1.7,<20" # For CMAKE_CXX_COMPILER_AR
 
 [feature.lint.dependencies]
 pre-commit = "*"
@@ -48,14 +55,16 @@ LD_LIBRARY_PATH = "$CONDA_PREFIX/lib:.build/_deps/mujoco-src/lib:.build/_deps/ze
 
 [feature.appimage.tasks]
 build-appimage = { cmd = """
-wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage && \
+(test -e linuxdeploy-x86_64.AppImage || \
+wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage) && \
 chmod +x linuxdeploy-x86_64.AppImage && \
 ./linuxdeploy-x86_64.AppImage --appdir .install/ \
                               -d resources/mujoco_simulator.desktop \
                               -i resources/mujoco_simulator.png \
                               --output appimage \
+                              --library $CONDA_PREFIX/lib/libstdc++.so.6 \
                               --executable=.install/bin/mujoco_simulator
-""", depends_on = [
+""", depends-on = [
   "install",
 ] }
 

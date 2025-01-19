@@ -260,14 +260,21 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
       mju::strcpy_arr(loadError, "could not load binary model");
     }
   } else {
-    // You have to use spec, otherwise recompiling won't have the qpos from old data
-    // See: https://github.com/JafarAbdi/mujoco/tree/spec_bug
-    spec = mj_parseXML(filename, nullptr, loadError, kErrorLength);
+    // Convert to an absolute path, otherwise mujoco complains about duplicate includes.
+    // To reproduce run model_act.xml from https://github.com/RainbowRobotics/rby1-sdk/tree/main/models/rby1a/mujoco
+    // simulate $(realpath model_act.xml) works
+    // simulate model_act.xml fails
+    const auto filename_absolute = std::filesystem::absolute(filename);
+    spec = mj_parseXML(filename_absolute.c_str(), nullptr, loadError, kErrorLength);
     if (!spec) {
-      spdlog::error("Failed to parse spec: {}", std::span(loadError, kErrorLength));
+      spdlog::error("Failed to parse spec for file {}: {}",
+                    filename_absolute.string(),
+                    std::string_view(loadError, kErrorLength));
       exit(1);
     }
 
+    // You have to use spec, otherwise recompiling won't have the qpos from old data
+    // See: https://github.com/JafarAbdi/mujoco/tree/spec_bug
     mnew = mj_compile(spec, nullptr);  // mj_loadXML(filename, nullptr, loadError, kErrorLength);
 
     // remove trailing newline character from loadError

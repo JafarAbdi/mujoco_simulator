@@ -35,6 +35,7 @@
 #include <new>
 #include <range/v3/algorithm/for_each.hpp>
 #include <range/v3/to_container.hpp>
+#include <range/v3/view/enumerate.hpp>
 #include <ranges>
 #include <span>
 #include <string>
@@ -85,6 +86,7 @@ const int kErrorLength = 1024;          // load error string length
 mjModel* m = nullptr;
 mjData* d = nullptr;
 mjSpec* spec = nullptr;
+inline std::unordered_map<std::string_view, int> actuator_to_id;
 
 using Seconds = std::chrono::duration<double>;
 
@@ -399,6 +401,12 @@ void load_model(mujoco::Simulate& sim) {
     d = dnew;
     mj_forward(m, d);
 
+    actuator_to_id.clear();
+    auto actuator_names = ModelView(m).actuator_names() | ranges::to_vector;
+    ranges::for_each(actuator_names | ranges::views::enumerate, [&](const auto& actuator) {
+      const auto& [index, name] = actuator;
+      actuator_to_id[name] = index;
+    });
   } else {
     sim.LoadMessageClear();
   }
@@ -627,8 +635,10 @@ void PhysicsLoop(mj::Simulate& sim) {
               if (std::holds_alternative<zenoh::Sample>(result)) {
                 const auto& sample = std::get<zenoh::Sample>(result);
 
-                const auto control = zenoh::ext::deserialize<std::unordered_map<int, double>>(sample.get_payload());
-                ranges::for_each(control, [&](const auto& actuator) { d->ctrl[actuator.first] = actuator.second; });
+                const auto control =
+                    zenoh::ext::deserialize<std::unordered_map<std::string, double>>(sample.get_payload());
+                ranges::for_each(
+                    control, [&](const auto& actuator) { d->ctrl[actuator_to_id[actuator.first]] = actuator.second; });
               }
               // call mj_step
               mj_step(m, d);

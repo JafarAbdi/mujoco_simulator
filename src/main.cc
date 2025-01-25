@@ -697,6 +697,12 @@ void PhysicsThread(mj::Simulate* sim, const char* filename) {
       const std::unique_lock<std::recursive_mutex> lock(sim->mtx);
 
       d = mj_makeData(m);
+      actuator_to_id.clear();
+      auto actuator_names = ModelView(m).actuator_names() | ranges::to_vector;
+      ranges::for_each(actuator_names | ranges::views::enumerate, [&](const auto& actuator) {
+        const auto& [index, name] = actuator;
+        actuator_to_id[name] = index;
+      });
     }
     if (d) {
       sim->Load(m, d, filename);

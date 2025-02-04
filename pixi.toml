@@ -5,6 +5,7 @@ description = "Add a short description here"
 name = "mujoco_simulator_cpp"
 platforms = ["linux-64"]
 version = "0.1.0"
+preview = ["pixi-build"]
 
 [tasks]
 
@@ -32,7 +33,6 @@ cpp-expected = ">=1.1.0,<2"
 spdlog = ">=1.14.1,<2"
 fmt = ">=11.0.2,<12"
 range-v3 = ">=0.12.0,<0.13"
-nlohmann_json = ">=3.11.3,<4"
 
 ninja = ">=1.12.1,<2"
 cmake = ">=3.30.5,<4"
@@ -40,7 +40,8 @@ lld = ">=19.1.2,<20"
 rust = ">=1.81.0,<2"
 mesalib = ">=24.3.3,<25"
 clangxx = ">=19.1.7,<20"
-llvm-tools = ">=19.1.7,<20" # For CMAKE_CXX_COMPILER_AR
+llvm-tools = ">=19.1.7,<20"                                         # For CMAKE_CXX_COMPILER_AR
+mujoco_simulator_msgs = { path = "external/mujoco_simulator_msgs" }
 
 [feature.lint.dependencies]
 pre-commit = "*"

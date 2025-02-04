@@ -29,6 +29,7 @@
 #include <memory>
 #include <optional>
 #include <ratio>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -2273,14 +2274,21 @@ void Simulate::LoadOnRenderThread() {
 
 //------------------------------------------- rendering --------------------------------------------
 
-void AddGeom(mjvScene* scene, const DecorativeGeometry& geom) {
+void AddGeom(mjvScene* scene, const mujoco_simulator_msgs::VisualGeometry& geom) {
   // TODO(juruc): Should print a warning
   // If no available geoms, return
   if (scene->ngeom >= scene->maxgeom) return;
 
+  const auto& pose = geom.pose();
+  std::array<double, 9> mat;
+  mju_quat2Mat(mat.data(), pose.quat().data());
   // src/render/render_gl3.c
-  mjv_initGeom(
-      &scene->geoms[scene->ngeom], geom.type, geom.size.data(), geom.pos.data(), geom.mat.data(), geom.rgba.data());
+  mjv_initGeom(&scene->geoms[scene->ngeom],
+               static_cast<int>(geom.type()),
+               geom.size().data(),
+               pose.pos().data(),
+               mat.data(),
+               geom.rgba().data());
   scene->geoms[scene->ngeom].category = mjCAT_DECOR;
   // Increment ngeom
   scene->ngeom += 1;

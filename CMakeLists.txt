@@ -44,7 +44,7 @@ find_package(range-v3 REQUIRED)
 find_package(zenohc REQUIRED)
 find_package(zenohcxx REQUIRED)
 find_package(spdlog REQUIRED)
-find_package(nlohmann_json REQUIRED)
+find_package(mujoco_simulator_msgs REQUIRED)
 
 add_library(mujoco::mujoco SHARED IMPORTED GLOBAL)
 
@@ -77,7 +77,7 @@ target_link_libraries(
   lodepng
   spdlog::spdlog
   zenohcxx::zenohc
-  nlohmann_json::nlohmann_json
+  mujoco_simulator_msgs::mujoco_simulator_msgs
 )
 target_link_options(mujoco_simulator PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
 target_include_directories(mujoco_simulator PRIVATE include src)

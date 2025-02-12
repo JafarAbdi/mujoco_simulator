@@ -319,9 +319,10 @@ bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
   mjData* dnew = nullptr;
   {
     std::unique_lock lock(sim.mtx);
-    model_spec = mj_parseXML(request.model_filename.c_str(), nullptr, nullptr, 0);
+    char loadError[kErrorLength] = "";
+    model_spec = mj_parseXML(request.model_filename.c_str(), nullptr, loadError, kErrorLength);
     if (!model_spec) {
-      spdlog::error("Failed to parse spec");
+      spdlog::error("Failed to parse spec: {}", std::string_view(loadError, kErrorLength));
       return false;
     }
 
@@ -365,6 +366,13 @@ bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
       mju_copy3(dnew->mocap_pos, request.pos.data());
       mju_copy4(dnew->mocap_quat, request.quat.data());
     }
+
+    actuator_to_id.clear();
+    auto actuator_names = ModelView(mnew).actuator_names() | ranges::to_vector;
+    ranges::for_each(actuator_names | ranges::views::enumerate, [&](const auto& actuator) {
+      const auto& [index, name] = actuator;
+      actuator_to_id[name] = index;
+    });
   }
   sim.Load(mnew, dnew, sim.filename);
 

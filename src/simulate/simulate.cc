@@ -2273,7 +2273,50 @@ void Simulate::LoadOnRenderThread() {
 
 //------------------------------------------- rendering --------------------------------------------
 
-void AddGeom(mjvScene* scene, const DecorativeGeometry& geom) {
+// Copied from src/engine/engine_vis_visualize.c
+void AddFrame(
+    mjvScene* scene, const mjModel* m, mjData* d, const std::string& geom_name, const DecorativeGeometry& geom) {
+  mjtNum sz[3];
+  float scl = m->stat.meansize * 0.5f;
+  // set length(1) and width(0) of the axis cylinders
+  sz[1] = m->vis.scale.framelength * scl;
+  sz[0] = m->vis.scale.framewidth * scl;
+  for (int j = 0; j < 3; j++) {
+    mjvGeom* thisgeom;
+    if (scene->ngeom >= scene->maxgeom) {
+      mj_warning(d, mjtWarning::mjWARN_VGEOMFULL, scene->maxgeom);
+      return;
+    } else {
+      thisgeom = scene->geoms + scene->ngeom;
+      memset(thisgeom, 0, sizeof(mjvGeom));
+      mjv_initGeom(thisgeom, mjtObj::mjOBJ_UNKNOWN, nullptr, nullptr, nullptr, nullptr);
+      thisgeom->category = mjCAT_DECOR;
+    }
+
+    // prepare axis
+    mjtNum axis[3];
+    for (int k = 0; k < 3; k++) {
+      axis[k] = (j == k ? sz[1] : 0);
+    }
+    mjtNum vec[3];
+    mju_mulMatVec(vec, geom.mat.data(), axis, 3, 3);
+
+    // create a cylinder
+    mjtNum to[3];
+    const mjtNum* from = geom.pos.data();
+    mju_add3(to, from, vec);
+    mjv_connector(thisgeom, mjGEOM_CYLINDER, sz[0], from, to);
+
+    // set color: R, G or B depending on axis
+    for (int k = 0; k < 3; k++) {
+      thisgeom->rgba[k] = (j == k ? 0.9 : 0);
+    }
+    thisgeom->rgba[3] = 1;
+    scene->ngeom++;
+  }
+}
+
+void AddGeom(mjvScene* scene, const std::string& geom_name, const DecorativeGeometry& geom) {
   // TODO(juruc): Should print a warning
   // If no available geoms, return
   if (scene->ngeom >= scene->maxgeom) return;
@@ -2281,6 +2324,7 @@ void AddGeom(mjvScene* scene, const DecorativeGeometry& geom) {
   // src/render/render_gl3.c
   mjv_initGeom(
       &scene->geoms[scene->ngeom], geom.type, geom.size.data(), geom.pos.data(), geom.mat.data(), geom.rgba.data());
+  mju::strcat_arr(scene->geoms[scene->ngeom].label, geom_name.c_str());
   scene->geoms[scene->ngeom].category = mjCAT_DECOR;
   // Increment ngeom
   scene->ngeom += 1;
@@ -2407,7 +2451,8 @@ void Simulate::Render() {
   // Modify scene
   if (uiloadrequest.load() == 0) {
     for (const auto& [geom_name, geom] : decorative_geoms_) {
-      AddGeom(&scn, geom);
+      AddGeom(&scn, geom_name, geom);
+      AddFrame(&scn, m_, d_, geom_name, geom);
     }
   }
 

@@ -20,7 +20,7 @@ struct AttachModelRequst {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
     AttachModelRequst, model_filename, parent_body_name, child_body_name, site_name, pos, quat, prefix, suffix);
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DecorativeGeometry, type, size, pos);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DecorativeGeometry, type, size, mat, pos);
 
 NLOHMANN_JSON_SERIALIZE_ENUM(
     mjtGeom,

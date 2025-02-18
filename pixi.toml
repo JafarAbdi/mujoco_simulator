@@ -40,7 +40,8 @@ lld = ">=19.1.2,<20"
 rust = ">=1.81.0,<2"
 mesalib = ">=24.3.3,<25"
 clangxx = ">=19.1.7,<20"
-llvm-tools = ">=19.1.7,<20"                                         # For CMAKE_CXX_COMPILER_AR
+# For CMAKE_CXX_COMPILER_AR
+llvm-tools = ">=19.1.7,<20"
 mujoco_simulator_msgs = { path = "external/mujoco_simulator_msgs" }
 
 [feature.lint.dependencies]

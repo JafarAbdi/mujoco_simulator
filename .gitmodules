@@ -1,0 +1,3 @@
+[submodule "external/mujoco_simulator_msgs"]
+	path = external/mujoco_simulator_msgs
+	url = https://github.com/JafarAbdi/mujoco_simulator_msgs

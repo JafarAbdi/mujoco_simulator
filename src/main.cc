@@ -351,9 +351,10 @@ bool attach_model(const mujoco_simulator_msgs::AttachModelRequest& request, mujo
   mjData* dnew = nullptr;
   {
     std::unique_lock lock(sim.mtx);
-    model_spec = mj_parseXML(request.model_filename().c_str(), nullptr, nullptr, 0);
+    char load_error[kErrorLength] = "";
+    model_spec = mj_parseXML(request.model_filename().c_str(), nullptr, load_error, kErrorLength);
     if (!model_spec) {
-      spdlog::error("Failed to parse spec");
+      spdlog::error("Failed to parse spec: {}", load_error);
       return false;
     }
 

@@ -17,6 +17,7 @@
 
 #include <mujoco/mjui.h>
 #include <mujoco/mujoco.h>
+#include <mujoco_simulator_msgs/mujoco_simulator.pb.h>
 
 #include <array>
 #include <atomic>
@@ -32,14 +33,6 @@
 #include <vector>
 
 #include "platform_ui_adapter.h"
-
-struct DecorativeGeometry {
-  mjtGeom type;
-  std::array<mjtNum, 3> size;
-  std::array<mjtNum, 3> pos;
-  std::array<mjtNum, 9> mat = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-  std::array<float, 4> rgba = {0.0, 1.0, 0.0, 1.0};
-};
 
 namespace mujoco {
 
@@ -137,7 +130,7 @@ class Simulate {
   std::vector<mjtNum> history_;  // history buffer (nhistory x state_size)
 
   // Additional user-defined visualization geoms
-  std::unordered_map<std::string, DecorativeGeometry> decorative_geoms_;
+  std::unordered_map<std::string, mujoco_simulator_msgs::VisualGeometry> decorative_geoms_;
 
   // mjModel and mjData fields that can be modified by the user through the GUI
   std::vector<mjtNum> qpos_;

@@ -135,6 +135,8 @@ target_include_directories(libsimulate PUBLIC ${mujoco_SOURCE_DIR}/simulate)
 target_compile_options(libsimulate PRIVATE ${MUJOCO_SIMULATE_COMPILE_OPTIONS})
 target_link_libraries(libsimulate PUBLIC lodepng mujoco::platform_ui_adapter mujoco::mujoco)
 target_link_options(libsimulate PRIVATE ${MUJOCO_SIMULATE_LINK_OPTIONS})
+target_compile_features(libsimulate PRIVATE cxx_std_20)
+target_compile_options(libsimulate PRIVATE -Wno-gcc-compat)
 
 if(APPLE)
   target_sources(libsimulate PRIVATE macos_gui.mm)

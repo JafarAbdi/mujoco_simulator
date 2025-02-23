@@ -14,6 +14,7 @@
 
 #include <fmt/ranges.h>
 #include <mujoco/mujoco.h>
+#include <mujoco_simulator_msgs/mujoco_simulator.pb.h>
 #include <simulate/simulate.h>
 #include <spdlog/spdlog.h>
 
@@ -30,7 +31,6 @@
 #include <iostream>
 #include <memory>
 #include <mujoco_simulator/mujoco_model_view.hpp>
-#include <mujoco_simulator/types.hpp>
 #include <mutex>
 #include <new>
 #include <range/v3/algorithm/for_each.hpp>
@@ -41,6 +41,7 @@
 #include <thread>
 #include <unordered_map>
 #include <zenoh.hxx>
+#include <zenoh/api/bytes.hxx>
 
 #include "array_safety.h"
 #include "glfw_adapter.h"
@@ -70,6 +71,39 @@ extern "C" {
 #include <sys/errno.h>
 #include <unistd.h>
 #endif
+}
+
+/**
+ * Serializes a protobuf message into a zenoh::Bytes.
+ *
+ * @tparam T The protobuf message type (e.g., mujoco_msgs::Person).
+ * @param message The protobuf message to serialize.
+ * @return A zenoh::Bytes containing the serialized message.
+ * @throws std::runtime_error If serialization fails.
+ */
+template <typename T>
+zenoh::Bytes SerializeProtobufToBytes(const T& message) {
+  static_assert(std::is_base_of<google::protobuf::Message, T>::value, "T must be a protobuf message type");
+
+  std::vector<uint8_t> buffer(message.ByteSizeLong());
+
+  if (!message.SerializeToArray(buffer.data(), buffer.size())) {
+    throw std::runtime_error("Failed to serialize protobuf message");
+  }
+
+  return buffer;
+}
+
+template <typename T>
+T DeserializeProtobufFromBytes(const zenoh::Bytes& buffer) {
+  static_assert(std::is_base_of<google::protobuf::Message, T>::value, "T must be a protobuf message type");
+
+  const auto bytes = buffer.as_vector();
+  T message;
+  if (!message.ParseFromArray(bytes.data(), bytes.size())) {
+    throw std::runtime_error("Failed to deserialize protobuf message");
+  }
+  return message;
 }
 
 namespace {
@@ -311,43 +345,44 @@ mjModel* LoadModel(const char* file, mj::Simulate& sim) {
   return mnew;
 }
 
-bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
+bool attach_model(const mujoco_simulator_msgs::AttachModelRequest& request, mujoco::Simulate& sim) {
   mjSpec* model_spec = nullptr;
   mjModel* mnew = nullptr;
   mjData* dnew = nullptr;
   {
     std::unique_lock lock(sim.mtx);
-    model_spec = mj_parseXML(request.model_filename.c_str(), nullptr, nullptr, 0);
+    model_spec = mj_parseXML(request.model_filename().c_str(), nullptr, nullptr, 0);
     if (!model_spec) {
       spdlog::error("Failed to parse spec");
       return false;
     }
 
     ASSIGN_OR_RETURN_FALSE(child_body,
-                           mjs_findBody(model_spec, request.child_body_name.c_str()),
+                           mjs_findBody(model_spec, request.child_body_name().c_str()),
                            "Failed to find body: {}",
-                           request.child_body_name);
+                           request.child_body_name());
 
     ASSIGN_OR_RETURN_FALSE(parent_body,
-                           mjs_findBody(spec, request.parent_body_name.c_str()),
+                           mjs_findBody(spec, request.parent_body_name().c_str()),
                            "Failed to find body: {}",
-                           request.parent_body_name);
+                           request.parent_body_name());
 
-    if (!request.site_name.empty()) {
+    const auto& pose = request.pose();
+    if (!request.has_site_name()) {
       ASSIGN_OR_RETURN_FALSE(
-          attachment_site, mjs_addSite(parent_body, nullptr), "Failed to find site: {}", request.site_name);
-      mjs_setString(attachment_site->name, request.site_name.c_str());
-      mju_copy3(attachment_site->pos, request.pos.data());
-      mju_copy4(attachment_site->quat, request.quat.data());
+          attachment_site, mjs_addSite(parent_body, nullptr), "Failed to find site: {}", request.site_name());
+      mjs_setString(attachment_site->name, request.site_name().c_str());
+      mju_copy3(attachment_site->pos, pose.pos().data());
+      mju_copy4(attachment_site->quat, pose.quat().data());
       CHECK_OR_RETURN_FALSE(
-          mjs_attachToSite(attachment_site, child_body, request.prefix.c_str(), request.suffix.c_str()),
+          mjs_attachToSite(attachment_site, child_body, request.prefix().c_str(), request.suffix().c_str()),
           "Failed to attach body to site");
     } else {
       ASSIGN_OR_RETURN_FALSE(frame, mjs_addFrame(parent_body, nullptr), "Failed to add frame");
-      CHECK_OR_RETURN_FALSE(mjs_attachBody(frame, child_body, request.prefix.c_str(), request.suffix.c_str()),
+      CHECK_OR_RETURN_FALSE(mjs_attachBody(frame, child_body, request.prefix().c_str(), request.suffix().c_str()),
                             "Failed to attach body to frame");
-      mju_copy3(frame->pos, request.pos.data());
-      mju_copy4(frame->quat, request.quat.data());
+      mju_copy3(frame->pos, pose.pos().data());
+      mju_copy4(frame->quat, pose.quat().data());
     }
 
     mnew = mj_copyModel(nullptr, m);
@@ -360,8 +395,8 @@ bool attach_model(const AttachModelRequst& request, mujoco::Simulate& sim) {
     // TODO(juruc): WTF why mocap pose is set to some crazy random values?? Why is the value from frame-(pos/quat) not
     // used here?
     if (mnew->nmocap > 0) {
-      mju_copy3(dnew->mocap_pos, request.pos.data());
-      mju_copy4(dnew->mocap_quat, request.quat.data());
+      mju_copy3(dnew->mocap_pos, pose.pos().data());
+      mju_copy4(dnew->mocap_quat, pose.quat().data());
     }
   }
   sim.Load(mnew, dnew, sim.filename);
@@ -413,39 +448,28 @@ void PhysicsLoop(mj::Simulate& sim) {
   auto reset_queryable = session.declare_queryable(
       zenoh::KeyExpr("reset"),
       [&](const zenoh::Query& query) {
-        bool reset = false;
-        std::optional<std::string> keyframe = std::nullopt;
-        std::optional<std::string> model_filename = std::nullopt;
+        mujoco_simulator_msgs::ResetModelRequest request;
         if (const auto& payload = query.get_payload(); payload.has_value()) {
-          reset = zenoh::ext::deserialize<bool>(payload.value());
+          const auto bytes = payload->get().as_vector();
+          request.ParseFromArray(bytes.data(), bytes.size());
         }
-        if (const auto& attachment = query.get_attachment(); attachment.has_value()) {
-          const auto& attachments =
-              zenoh::ext::deserialize<std::unordered_map<std::string, std::string>>(attachment->get());
-          if (attachments.contains("keyframe")) {
-            keyframe = attachments.at("keyframe");
-          }
-          if (attachments.contains("model_filename")) {
-            model_filename = attachments.at("model_filename");
-          }
-        }
-        if (model_filename.has_value()) {
-          mju::strcpy_arr(sim.filename, model_filename.value().c_str());
+        if (request.has_model_filename()) {
+          mju::strcpy_arr(sim.filename, request.model_filename().c_str());
           load_model(sim);
-          spdlog::info("Model loaded: {}", model_filename.value());
+          spdlog::info("Model loaded: {}", request.model_filename());
         }
-        if (reset) {
+        {
           std::unique_lock lock(sim.mtx);
-          if (keyframe.has_value()) {
+          if (request.has_keyframe()) {
             const auto keyframe_names = ModelView(m).keyframe_names();
-            const auto keyframe_it = std::ranges::find(keyframe_names, keyframe.value());
+            const auto keyframe_it = std::ranges::find(keyframe_names, request.keyframe());
             if (keyframe_it == keyframe_names.end()) {
               auto error =
-                  fmt::format("Keyframe '{}' not found. Available keyframes: {}", keyframe.value(), keyframe_names);
+                  fmt::format("Keyframe '{}' not found. Available keyframes: {}", request.keyframe(), keyframe_names);
               spdlog::error(error);
               query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(std::make_tuple(false, std::move(error))));
             }
-            spdlog::info("Loading keyframe '{}'.", keyframe.value());
+            spdlog::info("Loading keyframe '{}'.", request.keyframe());
             const auto keyframe_index = std::distance(keyframe_names.begin(), keyframe_it);
             mj_resetDataKeyframe(m, d, keyframe_index);
           } else {
@@ -466,29 +490,35 @@ void PhysicsLoop(mj::Simulate& sim) {
   auto attach_model_queryable = session.declare_queryable(
       zenoh::KeyExpr("attach_model"),
       [&](const zenoh::Query& query) {
-        const auto request =
-            zenoh::ext::deserialize<nlohmann::json>(query.get_payload().value()).get<AttachModelRequst>();
-        spdlog::info("Attaching model: {}", request.model_filename);
-        spdlog::info("Parent body name: {}", request.parent_body_name);
-        spdlog::info("Child body name: {}", request.child_body_name);
-        spdlog::info("Site name: '{}'", request.site_name);
-        spdlog::info("Position: {}", request.pos);
-        spdlog::info("Quaternion: {}", request.quat);
+        mujoco_simulator_msgs::AttachModelRequest request;
+        if (const auto& payload = query.get_payload(); payload.has_value()) {
+          const auto bytes = payload->get().as_vector();
+          request.ParseFromArray(bytes.data(), bytes.size());
+        }
+        spdlog::info("Attaching model: {}", request.model_filename());
+        spdlog::info("Parent body name: {}", request.parent_body_name());
+        spdlog::info("Child body name: {}", request.child_body_name());
+        spdlog::info("Site name: '{}'", request.site_name());
+        spdlog::info("Position: {}", request.pose().pos());
+        spdlog::info("Quaternion: {}", request.pose().quat());
+        mujoco_simulator_msgs::AttachModelResponse response;
         if (!attach_model(request, sim)) {
-          query.reply(zenoh::KeyExpr("attach_model"), zenoh::ext::serialize(false));
+          response.set_success(false);
+          query.reply(zenoh::KeyExpr("attach_model"), SerializeProtobufToBytes(response));
           return;
         }
-        spdlog::info("Model loaded: {}", request.model_filename);
-        query.reply(zenoh::KeyExpr("attach_model"), zenoh::ext::serialize(true));
+        response.set_success(true);
+        spdlog::info("Model loaded: {}", request.model_filename());
+        query.reply(zenoh::KeyExpr("attach_model"), SerializeProtobufToBytes(response));
       },
       zenoh::closures::none);
 
   auto model_queryable = session.declare_queryable(
       zenoh::KeyExpr("model"),
       [&](const zenoh::Query& query) {
-        query.reply(zenoh::KeyExpr("model"),
-                    (std::filesystem::current_path() / sim.filename).string(),
-                    {.encoding = zenoh::Encoding::Predefined::text_plain()});
+        mujoco_simulator_msgs::GetModelResponse response;
+        response.set_model_filename((std::filesystem::current_path() / sim.filename).string());
+        query.reply(zenoh::KeyExpr("model"), SerializeProtobufToBytes(response));
       },
       zenoh::closures::none);
 
@@ -497,9 +527,10 @@ void PhysicsLoop(mj::Simulate& sim) {
       zenoh::KeyExpr("remove_geometry"),
       [&](const zenoh::Query& query) {
         std::unique_lock lock(sim.mtx);
-        const auto object_name = zenoh::ext::deserialize<std::string>(query.get_payload().value());
-        sim.decorative_geoms_.erase(object_name);
-        query.reply(zenoh::KeyExpr("remove_geometry"), zenoh::ext::serialize(true));
+        const auto request = DeserializeProtobufFromBytes<mujoco_simulator_msgs::RemoveVisualGeometryRequest>(
+            query.get_payload().value());
+        sim.decorative_geoms_.erase(request.name());
+        query.reply(zenoh::KeyExpr("remove_geometry"), zenoh::Bytes());
       },
       zenoh::closures::none);
 
@@ -507,10 +538,10 @@ void PhysicsLoop(mj::Simulate& sim) {
       zenoh::KeyExpr("add_geometry"),
       [&](const zenoh::Query& query) {
         std::unique_lock lock(sim.mtx);
-        const auto [object_name, geometry] =
-            zenoh::ext::deserialize<std::tuple<std::string, nlohmann::json>>(query.get_payload().value());
-        sim.decorative_geoms_.insert_or_assign(object_name, geometry.get<DecorativeGeometry>());
-        query.reply(zenoh::KeyExpr("add_geometry"), zenoh::ext::serialize(true));
+        const auto request =
+            DeserializeProtobufFromBytes<mujoco_simulator_msgs::AddVisualGeometryRequest>(query.get_payload().value());
+        sim.decorative_geoms_.insert_or_assign(request.name(), request.visual_geometry());
+        query.reply(zenoh::KeyExpr("add_geometry"), zenoh::Bytes());
       },
       zenoh::closures::none);
 
@@ -627,6 +658,7 @@ void PhysicsLoop(mj::Simulate& sim) {
               if (std::holds_alternative<zenoh::Sample>(result)) {
                 const auto& sample = std::get<zenoh::Sample>(result);
 
+                // TODO: Use protobuf
                 const auto control = zenoh::ext::deserialize<std::unordered_map<int, double>>(sample.get_payload());
                 ranges::for_each(control, [&](const auto& actuator) { d->ctrl[actuator.first] = actuator.second; });
               }
@@ -636,9 +668,15 @@ void PhysicsLoop(mj::Simulate& sim) {
               session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
               // TODO: Right now we only send pose for the first mocap
               if (m->nmocap > 0) {
-                session.put("robot/mocap",
-                            zenoh::ext::serialize(nlohmann::json(
-                                {{"pos", std::span(d->mocap_pos, 3)}, {"quat", std::span(d->mocap_quat, 4)}})));
+                mujoco_simulator_msgs::Pose pose;
+                pose.add_pos(d->mocap_pos[0]);
+                pose.add_pos(d->mocap_pos[1]);
+                pose.add_pos(d->mocap_pos[2]);
+                pose.add_quat(d->mocap_quat[0]);
+                pose.add_quat(d->mocap_quat[1]);
+                pose.add_quat(d->mocap_quat[2]);
+                pose.add_quat(d->mocap_quat[3]);
+                session.put("robot/mocap", SerializeProtobufToBytes(pose));
               }
               const char* message = Diverged(m->opt.disableflags, d);
               if (message) {
@@ -725,6 +763,7 @@ __attribute__((used, visibility("default"))) extern "C" void _mj_rosettaError(co
 
 // run event loop
 int main(int argc, char** argv) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
   // display an error if running on macOS under Rosetta 2
 #if defined(__APPLE__) && defined(__AVX__)
   if (rosetta_error_msg) {
@@ -776,5 +815,6 @@ int main(int argc, char** argv) {
   sim->RenderLoop();
   physicsthreadhandle.join();
 
+  google::protobuf::ShutdownProtobufLibrary();
   return 0;
 }

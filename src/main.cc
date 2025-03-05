@@ -454,10 +454,10 @@ void PhysicsLoop(mj::Simulate& sim) {
           const auto bytes = payload->get().as_vector();
           request.ParseFromArray(bytes.data(), bytes.size());
         }
+        spdlog::info("Reset model request: {}", request.DebugString());
         if (request.has_model_filename()) {
           mju::strcpy_arr(sim.filename, request.model_filename().c_str());
           load_model(sim);
-          spdlog::info("Model loaded: {}", request.model_filename());
         }
         {
           std::unique_lock lock(sim.mtx);
@@ -470,7 +470,6 @@ void PhysicsLoop(mj::Simulate& sim) {
               spdlog::error(error);
               query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(std::make_tuple(false, std::move(error))));
             }
-            spdlog::info("Loading keyframe '{}'.", request.keyframe());
             const auto keyframe_index = std::distance(keyframe_names.begin(), keyframe_it);
             mj_resetDataKeyframe(m, d, keyframe_index);
           } else {
@@ -482,7 +481,7 @@ void PhysicsLoop(mj::Simulate& sim) {
           sim.pending_.ui_update_simulation = true;
           query.reply(zenoh::KeyExpr("reset"), zenoh::ext::serialize(std::make_tuple(true, std::string())));
         }
-        spdlog::info("Simulation reset");
+        spdlog::info("Simulation reset.");
         session.put("robot/qpos", zenoh::ext::serialize(std::span(d->qpos, m->nq)));
         session.put("robot/qvel", zenoh::ext::serialize(std::span(d->qvel, m->nv)));
       },
@@ -496,12 +495,7 @@ void PhysicsLoop(mj::Simulate& sim) {
           const auto bytes = payload->get().as_vector();
           request.ParseFromArray(bytes.data(), bytes.size());
         }
-        spdlog::info("Attaching model: {}", request.model_filename());
-        spdlog::info("Parent body name: {}", request.parent_body_name());
-        spdlog::info("Child body name: {}", request.child_body_name());
-        spdlog::info("Site name: '{}'", request.site_name());
-        spdlog::info("Position: {}", request.pose().pos());
-        spdlog::info("Quaternion: {}", request.pose().quat());
+        spdlog::info("Attach model request: {}", request.DebugString());
         mujoco_simulator_msgs::AttachModelResponse response;
         if (!attach_model(request, sim)) {
           response.set_success(false);
@@ -509,7 +503,7 @@ void PhysicsLoop(mj::Simulate& sim) {
           return;
         }
         response.set_success(true);
-        spdlog::info("Model loaded: {}", request.model_filename());
+        spdlog::info("Model loaded.");
         query.reply(zenoh::KeyExpr("attach_model"), SerializeProtobufToBytes(response));
       },
       zenoh::closures::none);

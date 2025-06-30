@@ -2190,6 +2190,8 @@ void Simulate::LoadOnRenderThread() {
     actuator_names_.emplace_back(this->m_->names + this->m_->name_actuatoradr[i]);
   }
 
+  decorative_geoms_.clear();
+
   qpos_.resize(this->m_->nq);
   std::memcpy(qpos_.data(), this->d_->qpos, sizeof(this->d_->qpos[0]) * this->m_->nq);
   qpos_prev_ = qpos_;
@@ -2310,6 +2312,26 @@ void Simulate::LoadOnRenderThread() {
 }
 
 //------------------------------------------- rendering --------------------------------------------
+
+void AddGeom(mjvScene* scene, const mujoco_simulator_msgs::VisualGeometry& geom) {
+  // TODO(juruc): Should print a warning
+  // If no available geoms, return
+  if (scene->ngeom >= scene->maxgeom) return;
+
+  const auto& pose = geom.pose();
+  std::array<double, 9> mat;
+  mju_quat2Mat(mat.data(), pose.quat().data());
+  // src/render/render_gl3.c
+  mjv_initGeom(&scene->geoms[scene->ngeom],
+               static_cast<int>(geom.type()),
+               geom.size().data(),
+               pose.pos().data(),
+               mat.data(),
+               geom.rgba().data());
+  scene->geoms[scene->ngeom].category = mjCAT_DECOR;
+  // Increment ngeom
+  scene->ngeom += 1;
+}
 
 // render the ui to the window
 void Simulate::Render() {
@@ -2434,6 +2456,13 @@ void Simulate::Render() {
       mjui_update(SECT_CONTROL, -1, &this->ui1, &this->uistate, &this->platform_ui->mjr_context());
     }
     pending_.ui_update_ctrl = false;
+  }
+
+  // Modify scene
+  if (uiloadrequest.load() == 0) {
+    for (const auto& [geom_name, geom] : decorative_geoms_) {
+      AddGeom(&scn, geom);
+    }
   }
 
   // render scene

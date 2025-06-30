@@ -17,6 +17,7 @@
 
 #include <mujoco/mjui.h>
 #include <mujoco/mujoco.h>
+#include <mujoco_simulator_msgs/mujoco_simulator.pb.h>
 
 #include <atomic>
 #include <chrono>
@@ -27,6 +28,7 @@
 #include <ratio>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -126,6 +128,9 @@ class Simulate {
   std::vector<std::string> actuator_names_;
 
   std::vector<mjtNum> history_;  // history buffer (nhistory x state_size)
+
+  // Additional user-defined visualization geoms
+  std::unordered_map<std::string, mujoco_simulator_msgs::VisualGeometry> decorative_geoms_;
 
   // mjModel and mjData fields that can be modified by the user through the GUI
   std::vector<mjtNum> qpos_;

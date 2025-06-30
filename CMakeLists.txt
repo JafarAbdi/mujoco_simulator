@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 include(GNUInstallDirs)
 
-set(MUJOCO_VERSION "3.2.7")
+set(MUJOCO_VERSION "3.3.3")
 set(ZENOH_VERSION "1.1.0")
 
 set(FETCHCONTENT_QUIET OFF)

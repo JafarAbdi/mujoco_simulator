@@ -376,12 +376,13 @@ bool attach_model(const mujoco_simulator_msgs::AttachModelRequest& request, mujo
       mju_copy3(attachment_site->pos, pose.pos().data());
       mju_copy4(attachment_site->quat, pose.quat().data());
       CHECK_OR_RETURN_FALSE(
-          mjs_attachToSite(attachment_site, child_body, request.prefix().c_str(), request.suffix().c_str()),
+          mjs_attach(attachment_site->element, child_body->element, request.prefix().c_str(), request.suffix().c_str()),
           "Failed to attach body to site");
     } else {
       ASSIGN_OR_RETURN_FALSE(frame, mjs_addFrame(parent_body, nullptr), "Failed to add frame");
-      CHECK_OR_RETURN_FALSE(mjs_attachBody(frame, child_body, request.prefix().c_str(), request.suffix().c_str()),
-                            "Failed to attach body to frame");
+      CHECK_OR_RETURN_FALSE(
+          mjs_attach(frame->element, child_body->element, request.prefix().c_str(), request.suffix().c_str()),
+          "Failed to attach body to frame");
       mju_copy3(frame->pos, pose.pos().data());
       mju_copy4(frame->quat, pose.quat().data());
     }
